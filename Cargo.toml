@@ -3,6 +3,8 @@ name = "gulkana"
 version = "0.1.0"
 authors = ["nick <scifi6546@protonmail.com>"]
 edition = "2018"
+description="A simple database"
+license="gplv3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
