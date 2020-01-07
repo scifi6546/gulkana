@@ -66,7 +66,7 @@ pub enum SerializeError{
 
 }
 /// Struct usd to store data
-#[derive(PartialEq,Eq,Deserialize,Serialize)]
+#[derive(Clone,PartialEq,Eq,Deserialize,Serialize)]
 pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone>{
     tree:BTreeMap<KeyType,Node<KeyType,ItemData>>,
