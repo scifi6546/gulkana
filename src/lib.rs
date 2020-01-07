@@ -6,6 +6,9 @@ use std::num::ParseIntError;
 use serde::{Serialize, Deserialize};
 mod opt_pair;
 use opt_pair::{OptStruct,new_optstruct_a,new_optstruct_b};
+/// # Gulkana
+/// Gulkana is a lightweight key based database for string files.
+/// The main struct is DataStructure
 #[derive(PartialEq,Eq,Copy, Clone,Serialize,Deserialize)]
 pub struct MetaData{
 
@@ -58,6 +61,11 @@ fn new_node_link<K:std::cmp::PartialEq+std::clone::Clone,
     };
     return foo;
 }
+pub enum SerializeError{
+    Unknown,
+
+}
+/// Struct usd to store data
 #[derive(PartialEq,Eq,Deserialize,Serialize)]
 pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone>{
@@ -65,7 +73,12 @@ pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
     
 }
 impl<KeyType:std::cmp::Ord+std::clone::Clone,
-    ItemData:std::clone::Clone > DataStructure<KeyType,ItemData>{
+    ItemData:std::clone::Clone> DataStructure<KeyType,ItemData>{
+    /// Inserts data into datastructure
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// ```
     pub fn insert(&mut self,key:&KeyType,data:ItemData)->Result<String,String>
     {
         return self.insert_node(key,new_node(data)); 
@@ -98,6 +111,14 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
+    /// gets key from database
+    /// ```
+    ///
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// let data = ds.get(10);
+    /// assert!(data.unwrap()==5); 
+    /// ```
     pub fn get(&self,key:KeyType)->Option<ItemData>
         where
             KeyType : std::cmp::Ord,
@@ -157,9 +178,24 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     {
         return right_join(self,right);
     }
+    pub fn to_string(&self)->Result<std::string::String,SerializeError>
+        where
+            KeyType:Serialize,
+            ItemData:Serialize
+    
+    {
+        let res = serde_json::to_string(&self);
+        if res.is_ok(){
+            return Ok(res.ok().unwrap());
+        }else{
+            match res.err().unwrap(){
+                _ =>return Err(SerializeError::Unknown),
+            }
+        }
+    }
 }
-impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone,
-    I:std::clone::Clone> fmt::Display for DataStructure<K,I>{
+impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,
+    I:std::clone::Clone+Serialize> fmt::Display for DataStructure<K,I>{
     fn fmt(&self, f: &mut fmt::Formatter)-> fmt::Result 
     {
         write!(f,"\n");
@@ -170,6 +206,28 @@ impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone,
 
     }
 }
+pub enum ReadError{
+    parse_error
+}
+/// Reads Database from a string. Can be used to write to a file
+pub fn from_string<'a,K:std::cmp::PartialEq+std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone>(data_in:&'a std::string::String)->Result<DataStructure<K,DataType>,ReadError>
+where
+    K:Deserialize<'a>,
+    DataType:Deserialize<'a>
+
+{
+
+        let res = serde_json::from_str(data_in);
+        if res.is_ok(){
+            return Ok(res.ok().unwrap());
+        }else{
+            return match res.err().unwrap(){
+                _ => Err(ReadError::parse_error),
+            }
+        }
+        
+        
+    }
 pub fn right_join<K:std::cmp::Ord+std::clone::Clone,ItemData>(left:&DataStructure<K,ItemData>,
         right:&DataStructure<K,ItemData>)->DataStructure<K,ItemData>
     where
@@ -324,8 +382,9 @@ mod tests{
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let str_ds = serde_json::to_string(&dsr).unwrap();
-        let mut dsl_t:DataStructure<u32,u32> = serde_json::from_str(&str_ds).unwrap();
+        let str_ds = dsr.to_string();
+        let dsl:DataStructure<u32,u32> = from_string(&str_ds.ok().unwrap()).ok().unwrap();
+        assert!(dsr==dsl);
 
 
     }
