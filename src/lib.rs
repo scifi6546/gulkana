@@ -6,6 +6,9 @@ use std::num::ParseIntError;
 use serde::{Serialize, Deserialize};
 mod opt_pair;
 use opt_pair::{OptStruct,new_optstruct_a,new_optstruct_b};
+/// # Gulkana
+/// Gulkana is a lightweight key based database for string files.
+/// The main struct is DataStructure
 #[derive(PartialEq,Eq,Copy, Clone,Serialize,Deserialize)]
 pub struct MetaData{
 
@@ -58,6 +61,7 @@ fn new_node_link<K:std::cmp::PartialEq+std::clone::Clone,
     };
     return foo;
 }
+/// Struct usd to store data
 #[derive(PartialEq,Eq,Deserialize,Serialize)]
 pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone>{
@@ -66,6 +70,11 @@ pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
 }
 impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone > DataStructure<KeyType,ItemData>{
+    /// Inserts data into datastructure
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// ```
     pub fn insert(&mut self,key:&KeyType,data:ItemData)->Result<String,String>
     {
         return self.insert_node(key,new_node(data)); 
@@ -98,6 +107,14 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
+    /// gets key from database
+    /// ```
+    ///
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// let data = ds.get(10);
+    /// assert!(data.unwrap()==5); 
+    /// ```
     pub fn get(&self,key:KeyType)->Option<ItemData>
         where
             KeyType : std::cmp::Ord,
