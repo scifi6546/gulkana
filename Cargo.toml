@@ -1,0 +1,12 @@
+[package]
+name = "gulkana"
+version = "0.1.0"
+authors = ["nick <scifi6546@protonmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand="0.7"
+serde_json=""
+serde = { version = "1.0", features = ["derive"] }
