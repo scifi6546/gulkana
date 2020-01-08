@@ -72,6 +72,31 @@ pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
     tree:BTreeMap<KeyType,Node<KeyType,ItemData>>,
     
 }
+///Iterator over all data nodes
+pub struct DataNodeIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
+    DataType:std::clone::Clone>{
+        iter:std::collections::btree_map::Iter<'a,KeyType, Node<KeyType,DataType>>
+    }
+
+impl<KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> DataNodeIter<'_,KeyType,
+    DataType>{
+        pub fn next(&mut self)->Option<(KeyType,DataType)>{
+            let data = self.iter.next();
+            if data.is_none(){
+                return None;
+            }
+            else{
+                let (key,node_unwrapped) = data.unwrap();
+                //getting data in node opt_pair;
+                let data_opt = node_unwrapped.item.B();
+                if(data_opt.is_none()){
+                    return self.next();
+                }else{
+                    return Some((key.clone(),data_opt.unwrap()));
+                }
+            }
+        }
+    }
 impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone> DataStructure<KeyType,ItemData>{
     /// Inserts data into datastructure
@@ -110,6 +135,11 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     pub fn iter(&self)->
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
+    }
+    pub fn iterData(&self)->DataNodeIter<KeyType,ItemData>{
+        return DataNodeIter{
+            iter:self.iter::<'_>()
+        };
     }
     /// gets key from database
     /// ```
