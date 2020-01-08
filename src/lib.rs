@@ -89,7 +89,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> DataNod
                 let (key,node_unwrapped) = data.unwrap();
                 //getting data in node opt_pair;
                 let data_opt = node_unwrapped.item.B();
-                if(data_opt.is_none()){
+                if data_opt.is_none(){
                     return self.next();
                 }else{
                     return Some((key.clone(),data_opt.unwrap()));
@@ -178,7 +178,6 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         }else{
             return None;
         }
-        return None;
     }
     pub fn contains(&self,key:&KeyType)->bool{
         return self.getNode(key).is_some();
@@ -237,7 +236,7 @@ impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,
     }
 }
 pub enum ReadError{
-    parse_error
+    ParseError
 }
 /// Reads Database from a string. Can be used to write to a file
 pub fn from_string<'a,K:std::cmp::PartialEq+std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone>(data_in:&'a std::string::String)->Result<DataStructure<K,DataType>,ReadError>
@@ -252,7 +251,7 @@ where
             return Ok(res.ok().unwrap());
         }else{
             return match res.err().unwrap(){
-                _ => Err(ReadError::parse_error),
+                _ => Err(ReadError::ParseError),
             }
         }
         
