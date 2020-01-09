@@ -189,10 +189,24 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             return Ok(());
 
     }
+    /// sets data in database
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,3);
+    /// ds.set_data(&10,&5);
+    /// assert!(ds.get(10).ok().unwrap()==&5);
+    /// ```
+    pub fn set_data(&mut self,key:&KeyType,
+                          data:&ItemData)->Result<(),DBOperationError>{
+        self.overwrite_node(key,new_node(data.clone()))
+         
+    }
     fn iter(&self)->
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
+    /// Used to iterate through data
+    ///
     pub fn iter_data(&self)->DataNodeIter<KeyType,ItemData>{
         return DataNodeIter{
             iter:self.iter()
@@ -511,11 +525,24 @@ mod tests{
     fn test_iter_data(){
         let mut ds = new_datastructure::<u32,u32>();
         ds.insert(&10,5);
-        for (key,data) in ds.iter_data(){
+        for (_key,data) in ds.iter_data(){
             assert!(*data==5);
         }
         return ();
             
     }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_set_data(){
+        let mut ds = new_datastructure::<u32,u32>();
+        ds.insert(&10,5);
+        ds.set_data(&10,&10);
+        for (_key,data) in ds.iter_data(){
+            assert!(*data==10);
+        }
+        return ();
+            
+    }
+
 
 }
