@@ -37,7 +37,7 @@ pub struct Node<Key:std::cmp::PartialEq+std::clone::Clone,Item:std::clone::Clone
 
 }
 impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone> Node<KeyType,DataType>{
-    pub fn getItem(&self)->Result<&DataType,DBOperationError>{
+    pub fn get_item(&self)->Result<&DataType,DBOperationError>{
         let data = self.item.b();
         if data.is_some(){
             return Ok(data.unwrap());
@@ -96,9 +96,10 @@ pub struct DataNodeIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
     DataType:std::clone::Clone>{
         iter:std::collections::btree_map::Iter<'a,KeyType, Node<KeyType,DataType>>
     }
-impl<KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> DataNodeIter<'_,KeyType,
-    DataType>{
-        pub fn next(&mut self)->Option<(KeyType,&DataType)>{
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
+    for DataNodeIter<'a,KeyType,DataType>{
+        type Item=(& 'a KeyType,&'a DataType);
+        fn next(&mut self)->Option<Self::Item>{
             let data = self.iter.next();
             if data.is_none(){
                 return None;
@@ -110,7 +111,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> DataNod
                 if data_opt.is_none(){
                     return self.next();
                 }else{
-                    return Some((key.clone(),data_opt.unwrap()));
+                    return Some((key,data_opt.unwrap()));
                 }
             }
         }
@@ -121,14 +122,16 @@ pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
         linked_keys: &'a std::vec::Vec<KeyType>,
         current_index: usize,
 }
-impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> DataLinkIter<'a,KeyType,DataType>{
-    pub fn next(&mut self)->Option<(&KeyType,&DataType)>{
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator for DataLinkIter<'a,KeyType,DataType>{
+    type Item=(&'a KeyType,&'a DataType);
+    fn next(&mut self)->Option<Self::Item>{
         let opt = self.linked_keys.get(self.current_index);
         if opt.is_some(){
             let res = self.db.get(opt.unwrap().clone()); 
             if res.is_ok(){
 
                 let data= res.ok().unwrap();
+                self.current_index+=1;
                 return Some((&opt.unwrap(),&data));
             }else{
                 return None;
@@ -136,7 +139,6 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Data
         }else{
             return None;
         }
-        return None;
     }
 }
 impl<KeyType:std::cmp::Ord+std::clone::Clone,
@@ -150,6 +152,17 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     {
         return self.insert_node(key,new_node(data)); 
     }
+    ///Used to insert a link into a datastructure
+    ///```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// ds.insert_link(&9,&vec![10]);
+    /// let iter = ds.iter_links(&9).ok().unwrap();
+    /// 
+    /// for (i,j) in iter{
+    ///     assert!(*j==5);
+    /// }
+    ///```
     pub fn insert_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>)->
         Result<(),DBOperationError>{
         return self.insert_node(key,new_node_link(children));
@@ -176,7 +189,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             return Ok(());
 
     }
-    pub fn iter(&self)->
+    fn iter(&self)->
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
@@ -203,7 +216,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
 
             return Err(DBOperationError::KeyNotFound);
         }else{
-            return(temp.unwrap().getItem());
+            return temp.unwrap().get_item();
         }
     }
     fn get_node(&self,key:&KeyType)->Result<&Node<KeyType,ItemData>,DBOperationError>{
@@ -377,7 +390,6 @@ mod tests{
 
         let mut ds = new_datastructure::<u32,u32>();
         for i in &arr{
-            
             ds.insert(i,*i);
         }
         let mut test_arr:Vec<u32>=Vec::new();
@@ -387,6 +399,7 @@ mod tests{
         arr.sort();
         test_arr.sort();
         for i in 0..test_arr.len(){
+            //println!("arr[{}]: {} test_arr[{}]: {}]",i,arr[i],i,test_arr[i]);
             assert!(arr[i]==test_arr[i]);
         }
     }
@@ -481,6 +494,28 @@ mod tests{
         let foo:std::vec::Vec<u32> = vec![0,1];
         assert!(*dsr.get_links(&4).ok().unwrap()==(foo));           
 
+    }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_iter_link(){
+        let mut ds = new_datastructure::<u32,u32>();
+        ds.insert(&10,5);
+        ds.insert_link(&9,&vec![10]);
+        let iter = ds.iter_links(&9).ok().unwrap();
+        for (_i,j) in iter{
+            assert!(*j==5);
+        }
+    }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_iter_data(){
+        let mut ds = new_datastructure::<u32,u32>();
+        ds.insert(&10,5);
+        for (key,data) in ds.iter_data(){
+            assert!(*data==5);
+        }
+        return ();
+            
     }
 
 }
