@@ -25,11 +25,12 @@ pub fn new_optstruct_b<A,B>(input:B)->OptStruct<A,B>
     }
 }
 impl<A:std::clone::Clone,B:std::clone::Clone> OptStruct<A,B>{
-    pub fn A(&self)->Option<A>{
-        return self.a.clone();  
+    pub fn a(&self)->Option<&A>{
+
+        return self.a.as_ref();  
     }
-    pub fn B(&self)->Option<B>{
-        return self.b.clone();
+    pub fn b(&self)->Option<&B>{
+        return self.b.as_ref();
     }
     
 }
