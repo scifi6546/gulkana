@@ -3,36 +3,20 @@ use std::fmt;
 //rust lint does not see that rand is used so to kill error
 #[allow(unused_imports)]
 use rand::prelude;
-use std::str::FromStr;
-use std::num::ParseIntError;
 use serde::{Serialize, Deserialize};
 mod opt_pair;
 use opt_pair::{OptStruct,new_optstruct_a,new_optstruct_b};
 /// # Gulkana
 /// Gulkana is a lightweight key based database for string files.
 /// The main struct is DataStructure
-#[derive(PartialEq,Eq,Copy, Clone,Serialize,Deserialize)]
-pub struct MetaData{
-
-}
-impl FromStr for MetaData{
-    type Err = ParseIntError;
-     fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        return Ok(MetaData{});
-     }
-}
 
 #[derive(PartialEq,Eq,Clone,Serialize,Deserialize)]
 pub struct Link<Key:std::clone::Clone>{
     children: Vec<Key>,
 }
-fn new_metadata()->MetaData{
-    return MetaData{};
-}
 #[derive(PartialEq,Eq,Clone,Serialize,Deserialize)]
 pub struct Node<Key:std::cmp::PartialEq+std::clone::Clone,Item:std::clone::Clone>
 {
-    metadata:MetaData,
     item:OptStruct<Link<Key>,Item>
 
 }
@@ -53,7 +37,6 @@ fn new_node<K:std::cmp::PartialEq+std::clone::Clone,
         I:std::clone::Clone,
     {
     let foo =  Node{
-        metadata:new_metadata(),
         item:new_optstruct_b(input),
     };
     return foo;
@@ -65,7 +48,6 @@ fn new_node_link<K:std::cmp::PartialEq+std::clone::Clone,
         I:std::clone::Clone,
     {
     let foo =  Node{
-        metadata:new_metadata(),
         item:new_optstruct_a(
             Link{ 
                 children:input.clone(),
