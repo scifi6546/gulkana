@@ -127,7 +127,7 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
     fn next(&mut self)->Option<Self::Item>{
         let opt = self.linked_keys.get(self.current_index);
         if opt.is_some(){
-            let res = self.db.get(opt.unwrap().clone()); 
+            let res = self.db.get(&opt.unwrap().clone()); 
             if res.is_ok(){
 
                 let data= res.ok().unwrap();
@@ -168,10 +168,24 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         return self.insert_node(key,new_node_link(children));
         
     }
+    ///Overwrites Links with vec shown
+    ///```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// ds.insert(&11,6);
+    /// ds.insert_link(&9,&vec![10]);
+    /// ds.overwrite_link(&9,&vec![11]);
+    /// let iter = ds.iter_links(&9).ok().unwrap();
+    /// 
+    /// for (_key,data) in iter{
+    ///     assert!(*data==6);
+    /// }
+    /// ````
     pub fn overwrite_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>)->
         Result<(),DBOperationError>{
         return self.overwrite_node(key,new_node_link(children));
     }
+
     fn insert_node(&mut self,key:&KeyType,data:Node<KeyType,ItemData>)->Result<(),DBOperationError>
         {
         if self.tree.contains_key(key)==false{
@@ -189,10 +203,24 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             return Ok(());
 
     }
+    /// sets data in database
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,3);
+    /// ds.set_data(&10,&5);
+    /// assert!(ds.get(&10).ok().unwrap()==&5);
+    /// ```
+    pub fn set_data(&mut self,key:&KeyType,
+                          data:&ItemData)->Result<(),DBOperationError>{
+        self.overwrite_node(key,new_node(data.clone()))
+         
+    }
     fn iter(&self)->
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
+    /// Used to iterate through data
+    ///
     pub fn iter_data(&self)->DataNodeIter<KeyType,ItemData>{
         return DataNodeIter{
             iter:self.iter()
@@ -203,15 +231,15 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ///
     /// let mut ds = gulkana::new_datastructure::<u32,u32>();
     /// ds.insert(&10,5);
-    /// let data = ds.get(10);
+    /// let data = ds.get(&10);
     /// assert!(*data.ok().unwrap()==5); 
     ///
     /// ```
-    pub fn get(&self,key:KeyType)->Result<&ItemData,DBOperationError>
+    pub fn get(&self,key:&KeyType)->Result<&ItemData,DBOperationError>
         where
             KeyType : std::cmp::Ord,
     {
-        let temp = self.tree.get(&key);
+        let temp = self.tree.get(key);
         if temp.is_none(){
 
             return Err(DBOperationError::KeyNotFound);
@@ -227,6 +255,15 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             return Err(DBOperationError::KeyNotFound);
         }
     }
+    /// Gets linked nodes
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// ds.insert(&11,6);
+    /// ds.insert_link(&9,&vec![10]);
+    /// let v = ds.get_links(&9).ok().unwrap();
+    /// assert!(v[0]==10);
+    /// ````
     pub fn get_links(&self,key:&KeyType)->Result<&Vec<KeyType>,DBOperationError>{
         let data = self.get_node(key)?;
         let vec_temp = data.item.a();
@@ -236,6 +273,8 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             return Err(DBOperationError::NodeNotLink);
         }
     }
+    /// Iterates through nodes attached to link
+    ///
     pub fn iter_links(&self,key:&KeyType)->Result<DataLinkIter<KeyType,ItemData>,DBOperationError>{
         return Ok(DataLinkIter{
                 db:self,
@@ -244,6 +283,13 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         });
                 
     }
+    /// Checks if database contains a given key
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// assert!(ds.contains(&10));
+    /// assert!(!ds.contains(&20));
+    /// ```
     pub fn contains(&self,key:&KeyType)->bool{
         return self.tree.get(key).is_some();
     }
@@ -511,11 +557,24 @@ mod tests{
     fn test_iter_data(){
         let mut ds = new_datastructure::<u32,u32>();
         ds.insert(&10,5);
-        for (key,data) in ds.iter_data(){
+        for (_key,data) in ds.iter_data(){
             assert!(*data==5);
         }
         return ();
             
     }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_set_data(){
+        let mut ds = new_datastructure::<u32,u32>();
+        ds.insert(&10,5);
+        ds.set_data(&10,&10);
+        for (_key,data) in ds.iter_data(){
+            assert!(*data==10);
+        }
+        return ();
+            
+    }
+
 
 }
