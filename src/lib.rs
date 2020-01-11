@@ -129,6 +129,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// ```
     /// let mut ds = gulkana::new_datastructure::<u32,u32>();
     /// ds.insert(&10,5);
+    /// assert!(ds.insert(&10,20).is_err());
     /// ```
     pub fn insert(&mut self,key:&KeyType,data:ItemData)->Result<(),DBOperationError>
     {
