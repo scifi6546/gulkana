@@ -313,6 +313,16 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
             }
         }
     }
+    /// Gets number of elements in db
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// assert!(ds.len()==0);
+    /// ds.insert(&20,20);
+    /// assert!(ds.len()==1);
+    /// ```
+    pub fn len(&self)->usize{
+        return self.tree.len()
+    }
 }
 impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,
     I:std::clone::Clone+Serialize> fmt::Display for DataStructure<K,I>{
