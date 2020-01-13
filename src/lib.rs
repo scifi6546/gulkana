@@ -103,7 +103,7 @@ pub struct DataMutIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::
 }
 impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
     for DataMutIter<'a,KeyType,DataType>{
-        type Item=(& 'a KeyType,&'a DataType);
+        type Item=(& 'a KeyType,&'a mut DataType);
         fn next(&mut self)->Option<Self::Item>{
             let data = self.iter.next();
             if data.is_none(){
@@ -112,7 +112,7 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
             else{
                 let (key,node_unwrapped) = data.unwrap();
                 //getting data in node opt_pair;
-                let data_opt = node_unwrapped.item.b();
+                let data_opt = node_unwrapped.item.b_mut();
                 if data_opt.is_none(){
                     return self.next();
                 }else{
@@ -240,10 +240,9 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// ```
     /// let mut ds = gulkana::new_datastructure::<u32,u32>();
     /// ds.insert(&10,3);
-    /// for (k,mut n) in ds.iter_data_mut(){
-    ///     n=&5;
+    /// for (k,n) in ds.iter_data_mut(){
+    ///     *n=5;
     /// }
-    /// println!("{}",ds.get(&10).ok().unwrap());
     /// assert!(ds.get(&10).ok().unwrap()==&5);
     /// ```
     pub fn iter_data_mut(&mut self)->DataMutIter<KeyType,ItemData>{
