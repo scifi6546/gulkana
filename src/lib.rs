@@ -97,7 +97,30 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
                 }
             }
         }
-    }
+}
+pub struct DataMutIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone>{
+    iter: std::collections::btree_map::IterMut<'a,KeyType,Node<KeyType,DataType>>,
+}
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
+    for DataMutIter<'a,KeyType,DataType>{
+        type Item=(& 'a KeyType,&'a DataType);
+        fn next(&mut self)->Option<Self::Item>{
+            let data = self.iter.next();
+            if data.is_none(){
+                return None;
+            }
+            else{
+                let (key,node_unwrapped) = data.unwrap();
+                //getting data in node opt_pair;
+                let data_opt = node_unwrapped.item.b();
+                if data_opt.is_none(){
+                    return self.next();
+                }else{
+                    return Some((key,data_opt.unwrap()));
+                }
+            }
+        }
+}
 pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
     DataType:std::clone::Clone>{
         db:&'a DataStructure<KeyType,DataType>,
@@ -202,12 +225,31 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
         self.tree.iter()
     }
+    fn iter_mut(&mut self)->
+    std::collections::btree_map::IterMut<'_, KeyType, Node<KeyType,ItemData>>{
+        self.tree.iter_mut()
+    }
     /// Used to iterate through data
     ///
     pub fn iter_data(&self)->DataNodeIter<KeyType,ItemData>{
         return DataNodeIter{
             iter:self.iter()
         };
+    }
+    /// Iterates through data mutably
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,3);
+    /// for (k,mut n) in ds.iter_data_mut(){
+    ///     n=&5;
+    /// }
+    /// println!("{}",ds.get(&10).ok().unwrap());
+    /// assert!(ds.get(&10).ok().unwrap()==&5);
+    /// ```
+    pub fn iter_data_mut(&mut self)->DataMutIter<KeyType,ItemData>{
+        return DataMutIter{
+            iter:self.iter_mut(),
+        }
     }
     /// gets key from database
     /// ```
