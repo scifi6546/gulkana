@@ -29,6 +29,14 @@ impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone> 
             return Err(DBOperationError::NodeNotData);
         }
     }
+    pub fn get_item_mut(&mut self)->Result<&mut DataType,DBOperationError>{
+        let data = self.item.b_mut();
+        if data.is_some(){
+            return Ok(data.unwrap());
+        }else{
+            return Err(DBOperationError::NodeNotData);
+        }
+    }
 }
 fn new_node<K:std::cmp::PartialEq+std::clone::Clone,
    I:std::clone::Clone>(input:I)->Node<K,I>
@@ -103,7 +111,7 @@ pub struct DataMutIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::
 }
 impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
     for DataMutIter<'a,KeyType,DataType>{
-        type Item=(& 'a KeyType,&'a mut DataType);
+        type Item=(&'a KeyType,&'a mut DataType);
         fn next(&mut self)->Option<Self::Item>{
             let data = self.iter.next();
             if data.is_none(){
@@ -146,6 +154,33 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
         }
     }
 }
+/*
+pub struct DataLinkIterMut<'a,KeyType:std::cmp::Ord+std::clone::Clone,
+    DataType:std::clone::Clone>{
+        db:&'a mut DataStructure<KeyType,DataType>,
+        linked_keys: &'a std::vec::Vec<KeyType>,
+        current_index: usize,
+}
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator
+    for DataLinkIterMut<'a,KeyType,DataType>{
+    type Item=(&'a KeyType,&'a mut DataType);
+    fn next(&mut self)->Option<Self::Item>{
+        let opt = self.linked_keys.get(self.current_index);
+        if opt.is_some(){
+            let res = self.db.get_mut(&opt.unwrap().clone()); 
+            if res.is_ok(){
+
+                let data= res.ok().unwrap();
+                self.current_index+=1;
+                return Some((&opt.unwrap(),data));
+            }else{
+                return None;
+            }
+        }else{
+            return None;
+        }
+    }
+}*/
 impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ItemData:std::clone::Clone> DataStructure<KeyType,ItemData>{
     /// Inserts data into datastructure
@@ -257,7 +292,6 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// ds.insert(&10,5);
     /// let data = ds.get(&10);
     /// assert!(*data.ok().unwrap()==5); 
-    ///
     /// ```
     pub fn get(&self,key:&KeyType)->Result<&ItemData,DBOperationError>
         where
@@ -270,6 +304,23 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         }else{
             return temp.unwrap().get_item();
         }
+    }
+    /// Gets data associated with key mutably
+    /// ```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32>();
+    /// ds.insert(&10,5);
+    /// let data = ds.get_mut(&10).ok().unwrap();
+    /// *data=10;
+    /// assert!(ds.get(&10).ok().unwrap()==&10); 
+    /// ```
+    pub fn get_mut(&mut self,key:&KeyType)->Result<& '_ mut ItemData,DBOperationError>{
+        let temp = self.tree.get_mut(key);
+        if temp.is_none(){
+            return Err(DBOperationError::KeyNotFound);
+        }else{
+            return temp.unwrap().get_item_mut();
+        }
+
     }
     fn get_node(&self,key:&KeyType)->Result<&Node<KeyType,ItemData>,DBOperationError>{
         let item = self.tree.get(key);
