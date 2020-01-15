@@ -74,6 +74,16 @@ pub enum DBOperationError{
     NodeNotData,
     
 }
+impl Into<String> for DBOperationError{
+    fn into(self)->String{
+        match self{
+            KeyAllreadyPresent => "Key Allready Present".to_string(),
+            KeyNotFound => "Key Not found".to_string(),
+            NodeNotLink => "Node Not Link".to_string(),
+            NodeNotData => "Node Not Data".to_string(),
+        }
+    }
+}
 /// Struct usd to store data
 #[derive(Clone,PartialEq,Eq,Deserialize,Serialize)]
 pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
