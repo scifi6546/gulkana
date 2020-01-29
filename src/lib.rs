@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::collections::HashMap;
 //rust lint does not see that rand is used so to kill error
 #[allow(unused_imports)]
 use rand::prelude;
@@ -11,16 +12,17 @@ use opt_pair::{OptStruct,new_optstruct_a,new_optstruct_b};
 /// The main struct is DataStructure
 
 #[derive(PartialEq,Eq,Clone,Serialize,Deserialize)]
-pub struct Link<Key:std::clone::Clone>{
+pub struct Link<Key:std::clone::Clone,TypeLabel:std::clone::Clone>{
+    typeLabel:TypeLabel,
     children: Vec<Key>,
 }
 #[derive(PartialEq,Eq,Clone,Serialize,Deserialize)]
-pub struct Node<Key:std::cmp::PartialEq+std::clone::Clone,Item:std::clone::Clone>
+pub struct Node<Key:std::cmp::PartialEq+std::clone::Clone,Item:std::clone::Clone,LinkLabel:std::clone::Clone>
 {
-    item:OptStruct<Link<Key>,Item>
+    item:OptStruct<Link<Key,LinkLabel>,Item>
 
 }
-impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone> Node<KeyType,DataType>{
+impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone,LinkLabel:std::clone::Clone> Node<KeyType,DataType,LinkLabel>{
     pub fn get_item(&self)->Result<&DataType,DBOperationError>{
         let data = self.item.b();
         if data.is_some(){
@@ -39,7 +41,7 @@ impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone> 
     }
 }
 fn new_node<K:std::cmp::PartialEq+std::clone::Clone,
-   I:std::clone::Clone>(input:I)->Node<K,I>
+   I:std::clone::Clone,LinkLabel:std::clone::Clone>(input:I)->Node<K,I,LinkLabel>
     where
         K:std::clone::Clone,
         I:std::clone::Clone,
@@ -50,7 +52,7 @@ fn new_node<K:std::cmp::PartialEq+std::clone::Clone,
     return foo;
 }
 fn new_node_link<K:std::cmp::PartialEq+std::clone::Clone,
-   I:std::clone::Clone>(input:&std::vec::Vec<K>)->Node<K,I>
+   I:std::clone::Clone,LinkLabel:std::clone::Clone>(input:&std::vec::Vec<K>,link_type:LinkLabel)->Node<K,I,LinkLabel>
     where
         K:std::clone::Clone,
         I:std::clone::Clone,
@@ -59,6 +61,7 @@ fn new_node_link<K:std::cmp::PartialEq+std::clone::Clone,
         item:new_optstruct_a(
             Link{ 
                 children:input.clone(),
+                typeLabel:link_type,
             }),
     };
     return foo;
@@ -84,20 +87,20 @@ impl Into<String> for DBOperationError{
         }
     }
 }
+type DataType=HashMap<String,String>;
 /// Struct usd to store data
 #[derive(Clone,PartialEq,Eq,Deserialize,Serialize)]
-pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,
-    ItemData:std::clone::Clone>{
-    tree:BTreeMap<KeyType,Node<KeyType,ItemData>>,
+pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone,LinkLabel:std::clone::Clone>{
+    tree:BTreeMap<KeyType,Node<KeyType,DataType,LinkLabel>>,
     
 }
 ///Iterator over all data nodes
 pub struct DataNodeIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
-    DataType:std::clone::Clone>{
-        iter:std::collections::btree_map::Iter<'a,KeyType, Node<KeyType,DataType>>
+    DataType:std::clone::Clone,LinkLabel:std::clone::Clone>{
+        iter:std::collections::btree_map::Iter<'a,KeyType, Node<KeyType,DataType,LinkLabel>>
     }
-impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
-    for DataNodeIter<'a,KeyType,DataType>{
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone,LinkLabel:std::clone::Clone> Iterator 
+    for DataNodeIter<'a,KeyType,DataType,LinkLabel>{
         type Item=(& 'a KeyType,&'a DataType);
         fn next(&mut self)->Option<Self::Item>{
             let data = self.iter.next();
@@ -116,11 +119,11 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
             }
         }
 }
-pub struct DataMutIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone>{
-    iter: std::collections::btree_map::IterMut<'a,KeyType,Node<KeyType,DataType>>,
+pub struct DataMutIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone,LinkLabel:std::clone::Clone>{
+    iter: std::collections::btree_map::IterMut<'a,KeyType,Node<KeyType,DataType,LinkLabel>>,
 }
-impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator 
-    for DataMutIter<'a,KeyType,DataType>{
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone,LinkLabel:std::clone::Clone> Iterator 
+    for DataMutIter<'a,KeyType,DataType,LinkLabel>{
         type Item=(&'a KeyType,&'a mut DataType);
         fn next(&mut self)->Option<Self::Item>{
             let data = self.iter.next();
@@ -139,13 +142,12 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
             }
         }
 }
-pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,
-    DataType:std::clone::Clone>{
-        db:&'a DataStructure<KeyType,DataType>,
+pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone,LinkLabel:std::clone::Clone>{
+        db:&'a DataStructure<KeyType,LinkLabel>,
         linked_keys: &'a std::vec::Vec<KeyType>,
         current_index: usize,
 }
-impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator for DataLinkIter<'a,KeyType,DataType>{
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,LinkLabel:std::clone::Clone> Iterator for DataLinkIter<'a,KeyType,LinkLabel>{
     type Item=(&'a KeyType,&'a DataType);
     fn next(&mut self)->Option<Self::Item>{
         let opt = self.linked_keys.get(self.current_index);
@@ -155,7 +157,7 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
 
                 let data= res.ok().unwrap();
                 self.current_index+=1;
-                return Some((&opt.unwrap(),&data));
+                return Some((&opt.unwrap(),data));
             }else{
                 return None;
             }
@@ -191,15 +193,14 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
         }
     }
 }*/
-impl<KeyType:std::cmp::Ord+std::clone::Clone,
-    ItemData:std::clone::Clone> DataStructure<KeyType,ItemData>{
+impl<KeyType:std::cmp::Ord+std::clone::Clone,LinkLabel:std::clone::Clone> DataStructure<KeyType,LinkLabel>{
     /// Inserts data into datastructure
     /// ```
     /// let mut ds = gulkana::new_datastructure::<u32,u32>();
     /// ds.insert(&10,5);
     /// assert!(ds.insert(&10,20).is_err());
     /// ```
-    pub fn insert(&mut self,key:&KeyType,data:ItemData)->Result<(),DBOperationError>
+    pub fn insert(&mut self,key:&KeyType,data:DataType)->Result<(),DBOperationError>
     {
         return self.insert_node(key,new_node(data)); 
     }
@@ -214,9 +215,9 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ///     assert!(*j==5);
     /// }
     ///```
-    pub fn insert_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>)->
+    pub fn insert_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>,link_type:LinkLabel)->
         Result<(),DBOperationError>{
-        return self.insert_node(key,new_node_link(children));
+        return self.insert_node(key,new_node_link(children,link_type));
         
     }
     ///Overwrites Links with vec shown
@@ -232,12 +233,12 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     ///     assert!(*data==6);
     /// }
     /// ````
-    pub fn overwrite_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>)->
+    pub fn overwrite_link(&mut self,key:&KeyType,link_type:LinkLabel,children:&std::vec::Vec<KeyType>)->
         Result<(),DBOperationError>{
-        return self.overwrite_node(key,new_node_link(children));
+        return self.overwrite_node(key,new_node_link(children,link_type));
     }
 
-    fn insert_node(&mut self,key:&KeyType,data:Node<KeyType,ItemData>)->Result<(),DBOperationError>
+    fn insert_node(&mut self,key:&KeyType,data:Node<KeyType,DataType,LinkLabel>)->Result<(),DBOperationError>
         {
         if self.tree.contains_key(key)==false{
             self.tree.insert(key.clone(),data);
@@ -249,7 +250,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
 
     }
     fn overwrite_node(&mut self,key:&KeyType,
-        data:Node<KeyType,ItemData>)->Result<(),DBOperationError>{
+        data:Node<KeyType,DataType,LinkLabel>)->Result<(),DBOperationError>{
             self.tree.insert(key.clone(),data);
             return Ok(());
 
@@ -262,21 +263,21 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// assert!(ds.get(&10).ok().unwrap()==&5);
     /// ```
     pub fn set_data(&mut self,key:&KeyType,
-                          data:&ItemData)->Result<(),DBOperationError>{
+                          data:&DataType)->Result<(),DBOperationError>{
         self.overwrite_node(key,new_node(data.clone()))
          
     }
     fn iter(&self)->
-        std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,ItemData>>{
+        std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,DataType,LinkLabel>>{
         self.tree.iter()
     }
     fn iter_mut(&mut self)->
-    std::collections::btree_map::IterMut<'_, KeyType, Node<KeyType,ItemData>>{
+    std::collections::btree_map::IterMut<'_, KeyType, Node<KeyType,DataType,LinkLabel>>{
         self.tree.iter_mut()
     }
     /// Used to iterate through data
     ///
-    pub fn iter_data(&self)->DataNodeIter<KeyType,ItemData>{
+    pub fn iter_data(&self)->DataNodeIter<KeyType,DataType,LinkLabel>{
         return DataNodeIter{
             iter:self.iter()
         };
@@ -290,7 +291,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// }
     /// assert!(ds.get(&10).ok().unwrap()==&5);
     /// ```
-    pub fn iter_data_mut(&mut self)->DataMutIter<KeyType,ItemData>{
+    pub fn iter_data_mut(&mut self)->DataMutIter<KeyType,DataType,LinkLabel>{
         return DataMutIter{
             iter:self.iter_mut(),
         }
@@ -303,7 +304,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// let data = ds.get(&10);
     /// assert!(*data.ok().unwrap()==5); 
     /// ```
-    pub fn get(&self,key:&KeyType)->Result<&ItemData,DBOperationError>
+    pub fn get(&self,key:&KeyType)->Result<&DataType,DBOperationError>
         where
             KeyType : std::cmp::Ord,
     {
@@ -323,7 +324,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     /// *data=10;
     /// assert!(ds.get(&10).ok().unwrap()==&10); 
     /// ```
-    pub fn get_mut(&mut self,key:&KeyType)->Result<& '_ mut ItemData,DBOperationError>{
+    pub fn get_mut(&mut self,key:&KeyType)->Result<& '_ mut DataType,DBOperationError>{
         let temp = self.tree.get_mut(key);
         if temp.is_none(){
             return Err(DBOperationError::KeyNotFound);
@@ -332,7 +333,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         }
 
     }
-    fn get_node(&self,key:&KeyType)->Result<&Node<KeyType,ItemData>,DBOperationError>{
+    fn get_node(&self,key:&KeyType)->Result<&Node<KeyType,DataType,LinkLabel>,DBOperationError>{
         let item = self.tree.get(key);
         if item.is_some(){
             return Ok(item.unwrap());
@@ -360,7 +361,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
     }
     /// Iterates through nodes attached to link
     ///
-    pub fn iter_links(&self,key:&KeyType)->Result<DataLinkIter<KeyType,ItemData>,DBOperationError>{
+    pub fn iter_links(&self,key:&KeyType)->Result<DataLinkIter<KeyType,LinkLabel>,DBOperationError>{
         return Ok(DataLinkIter{
                 db:self,
                 linked_keys:self.get_links(key)?,
@@ -383,10 +384,11 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         let data = self.get_node(key)?;
         let link_vec_opt = data.item.a();
         if link_vec_opt.is_some(){
-            let mut link_vec = link_vec_opt.unwrap().children.clone();
+            let link = link_vec_opt.unwrap();
+            let mut link_vec = link.children.clone();
             if !link_vec.contains(key_append){
                 link_vec.push(key_append.clone());
-                return self.overwrite_link(key,&link_vec);
+                return self.overwrite_link(key,link.typeLabel,&link_vec);
             }else{
                 return Err(DBOperationError::KeyAllreadyPresent);
             }
@@ -395,16 +397,14 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone,
         }
 
     }
-    pub fn right_join(&self,right: &DataStructure<KeyType,ItemData>)->
-        Result<DataStructure<KeyType,ItemData>,DBOperationError>
+    pub fn right_join(&self,right: &DataStructure<KeyType,LinkLabel>)->
+        Result<DataStructure<KeyType,LinkLabel>,DBOperationError>
     {
         return right_join(self,right);
     }
     pub fn to_string(&self)->Result<std::string::String,SerializeError>
         where
-            KeyType:Serialize,
-            ItemData:Serialize
-    
+            KeyType:Serialize
     {
         let res = serde_json::to_string(&self);
         if res.is_ok(){
@@ -460,15 +460,13 @@ where
         
         
     }
-pub fn right_join<K:std::cmp::Ord+std::clone::Clone,ItemData>(left:&DataStructure<K,ItemData>,
-        right:&DataStructure<K,ItemData>)->Result<DataStructure<K,ItemData>,DBOperationError>
-    where
-        ItemData:std::clone::Clone,
+pub fn right_join<K:std::cmp::Ord+std::clone::Clone,LinkLabel:std::clone::Clone>(left:&DataStructure<K,LinkLabel>,
+        right:&DataStructure<K,LinkLabel>)->Result<DataStructure<K,LinkLabel>,DBOperationError>
     {
 
     let mut left_iter = left.iter().peekable();
     let mut right_iter = right.iter().peekable();
-    let mut db = new_datastructure::<K,ItemData>();
+    let mut db = new_datastructure::<K,LinkLabel>();
 
 
     loop{
@@ -504,9 +502,7 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone,ItemData>(left:&DataStructur
     }
 
 }
-pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone>()->DataStructure<K,DataType>
-    where
-        K:std::cmp::Ord,
+pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord,LinkLabel:std::clone::Clone>()->DataStructure<K,LinkLabel>
     {
     return DataStructure{
         tree:BTreeMap::new(),
@@ -529,7 +525,7 @@ mod tests{
             arr.push(prelude::random());
         }
 
-        let mut ds = new_datastructure::<u32,u32>();
+        let mut ds = new_datastructure::<u32>();
         for i in &arr{
             ds.insert(i,*i);
         }
@@ -547,11 +543,11 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_right_join(){
-        let mut dsr=new_datastructure::<u32,u32>();
+        let mut dsr=new_datastructure::<u32>();
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let mut dsl=new_datastructure::<u32,u32>();
+        let mut dsl=new_datastructure::<u32>();
         dsl.insert(&0,0);
         dsl.insert(&1,1);
         dsl.insert(&2,2);
