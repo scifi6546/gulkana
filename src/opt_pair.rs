@@ -29,6 +29,7 @@ impl<A:std::clone::Clone,B:std::clone::Clone> OptStruct<A,B>{
 
         return self.a.as_ref();  
     }
+    #[allow(dead_code)]
     pub fn a_mut(&mut self)->Option<&mut A>{
         return self.a.as_mut();  
     }
