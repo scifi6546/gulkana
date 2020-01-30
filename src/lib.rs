@@ -1,4 +1,7 @@
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::prelude::*;
+
 use std::fmt;
 //rust lint does not see that rand is used so to kill error
 #[allow(unused_imports)]
@@ -74,18 +77,38 @@ pub enum DBOperationError{
     KeyNotFound,
     NodeNotLink,
     NodeNotData,
+    SerializeError,
+    FSError,
     
 }
 impl Into<String> for DBOperationError{
     fn into(self)->String{
         match self{
-            #[allow(unused)]
+            Self::SerializeError => "failed seriailzing database".to_string(),
+            Self::FSError =>"Failed to write".to_string(),
             Self::KeyAllreadyPresent => "Key Allready Present".to_string(),
             Self::KeyNotFound => "Key Not found".to_string(),
             Self::NodeNotLink => "Node Not Link".to_string(),
             Self::NodeNotData => "Node Not Data".to_string(),
         }
     }
+}
+impl From<SerializeError> for DBOperationError{
+    fn from(error:SerializeError)->Self{
+        match error{
+            _ => Self::SerializeError,
+        }
+    }
+
+}
+impl From<std::io::Error> for DBOperationError{
+    fn from(error: std::io::Error)->Self{
+        match error{
+            _ => Self::FSError,
+        }
+
+    }
+
 }
 /// Struct usd to store data
 /// Inorder to allow new fields in input struct to be added
@@ -98,8 +121,9 @@ impl Into<String> for DBOperationError{
 /// ```
 /// this way the data structure is compatible with old versions of the database.
 #[derive(Clone,PartialEq,Eq,Deserialize,Serialize)]
-pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone,LinkLabel:std::clone::Clone+Serialize>{
+pub struct DataStructure<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>{
     tree:BTreeMap<KeyType,Node<KeyType,DataType,LinkLabel>>,
+    file_backing:Option<String>,// file to write back to
     
 }
 ///Iterator over all data nodes
@@ -150,13 +174,13 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone,LinkL
             }
         }
 }
-pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone,LinkLabel:std::clone::Clone+Serialize>{
+pub struct DataLinkIter<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>{
         db:&'a DataStructure<KeyType,DataType,LinkLabel>,
         linked_keys: &'a std::vec::Vec<KeyType>,
         current_index: usize,
 }
 impl<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,
-        DataType:std::clone::Clone,
+        DataType:std::clone::Clone+Serialize,
         LinkLabel:std::clone::Clone+Serialize
     > Iterator for DataLinkIter<'a,KeyType,DataType,LinkLabel>{
 
@@ -205,10 +229,10 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
         }
     }
 }*/
-impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone,LinkLabel:std::clone::Clone+Serialize> DataStructure<KeyType,DataType,LinkLabel>{
+impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize+Serialize> DataStructure<KeyType,DataType,LinkLabel>{
     /// Inserts data into datastructure
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// assert!(ds.insert(&10,20).is_err());
     /// ```
@@ -218,7 +242,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     ///Used to insert a link into a datastructure
     ///```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// ds.insert_link(&9,&vec![10],0);
     /// let iter = ds.iter_links(&9).ok().unwrap();
@@ -234,7 +258,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     ///Overwrites Links with vec shown
     ///```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// ds.insert(&11,6);
     /// ds.insert_link(&9,&vec![10],0);
@@ -254,6 +278,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
         {
         if self.tree.contains_key(key)==false{
             self.tree.insert(key.clone(),data);
+            self.write_back()?;
             return Ok(());
         }else{
             return Err(DBOperationError::KeyAllreadyPresent);
@@ -264,12 +289,13 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     fn overwrite_node(&mut self,key:&KeyType,
         data:Node<KeyType,DataType,LinkLabel>)->Result<(),DBOperationError>{
             self.tree.insert(key.clone(),data);
+            self.write_back()?;
             return Ok(());
 
     }
     /// sets data in database
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,3);
     /// ds.set_data(&10,&5);
     /// assert!(ds.get(&10).ok().unwrap()==&5);
@@ -277,15 +303,10 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     pub fn set_data(&mut self,key:&KeyType,
                           data:&DataType)->Result<(),DBOperationError>{
         self.overwrite_node(key,new_node(data.clone()))
-         
     }
     fn iter(&self)->
         std::collections::btree_map::Iter<'_, KeyType, Node<KeyType,DataType,LinkLabel>>{
         self.tree.iter()
-    }
-    fn iter_mut(&mut self)->
-    std::collections::btree_map::IterMut<'_, KeyType, Node<KeyType,DataType,LinkLabel>>{
-        self.tree.iter_mut()
     }
     /// Used to iterate through data
     ///
@@ -294,32 +315,15 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
             iter:self.iter()
         };
     }
-    /// Iterates through data mutably
-    /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
-    /// ds.insert(&10,3);
-    /// for (k,n) in ds.iter_data_mut(){
-    ///     *n=5;
-    /// }
-    /// assert!(ds.get(&10).ok().unwrap()==&5);
-    /// ```
-    pub fn iter_data_mut(&mut self)->DataMutIter<KeyType,DataType,LinkLabel>{
-        return DataMutIter{
-            iter:self.iter_mut(),
-        }
-    }
     /// gets key from database
     /// ```
     ///
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// let data = ds.get(&10);
     /// assert!(*data.ok().unwrap()==5); 
     /// ```
-    pub fn get(&self,key:&KeyType)->Result<&DataType,DBOperationError>
-        where
-            KeyType : std::cmp::Ord,
-    {
+    pub fn get(&self,key:&KeyType)->Result<&DataType,DBOperationError>{
         let temp = self.tree.get(key);
         if temp.is_none(){
 
@@ -327,23 +331,6 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
         }else{
             return temp.unwrap().get_item();
         }
-    }
-    /// Gets data associated with key mutably
-    /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
-    /// ds.insert(&10,5);
-    /// let data = ds.get_mut(&10).ok().unwrap();
-    /// *data=10;
-    /// assert!(ds.get(&10).ok().unwrap()==&10); 
-    /// ```
-    pub fn get_mut(&mut self,key:&KeyType)->Result<& '_ mut DataType,DBOperationError>{
-        let temp = self.tree.get_mut(key);
-        if temp.is_none(){
-            return Err(DBOperationError::KeyNotFound);
-        }else{
-            return temp.unwrap().get_item_mut();
-        }
-
     }
     fn get_node(&self,key:&KeyType)->Result<&Node<KeyType,DataType,LinkLabel>,DBOperationError>{
         let item = self.tree.get(key);
@@ -355,7 +342,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Gets linked nodes
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// ds.insert(&11,6);
     /// ds.insert_link(&9,&vec![10],0);
@@ -383,7 +370,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Checks if database contains a given key
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// assert!(ds.contains(&10));
     /// assert!(!ds.contains(&20));
@@ -429,9 +416,32 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
             }
         }
     }
+    ///writes back to a file
+    fn write_back(&self)->Result<(),DBOperationError>
+        where
+            KeyType:Serialize,
+            DataType:Serialize,
+            LinkLabel:Serialize
+
+    {
+        
+        if self.file_backing.is_some(){
+            let mut file = File::create(self.file_backing.clone().unwrap())?;
+            let out_str = self.to_string()?;
+            
+            file.write_all(out_str.as_bytes())?;
+
+            return Ok(());
+
+        }else{
+            return Ok(());
+        }
+        
+
+    }
     /// Gets number of elements in db
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// assert!(ds.len()==0);
     /// ds.insert(&20,20);
     /// assert!(ds.len()==1);
@@ -440,7 +450,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
         return self.tree.len()
     }
 }
-impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,DataType:std::clone::Clone,
+impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,
     I:std::clone::Clone+Serialize> fmt::Display for DataStructure<K,DataType,I>{
     fn fmt(&self, f: &mut fmt::Formatter)-> fmt::Result 
     {
@@ -475,13 +485,13 @@ where
         
         
     }
-pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone,LinkLabel:std::clone::Clone+Serialize>(left:&DataStructure<K,DataType,LinkLabel>,
+pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(left:&DataStructure<K,DataType,LinkLabel>,
         right:&DataStructure<K,DataType,LinkLabel>)->Result<DataStructure<K,DataType,LinkLabel>,DBOperationError>
     {
 
     let mut left_iter = left.iter().peekable();
     let mut right_iter = right.iter().peekable();
-    let mut db = new_datastructure::<K,DataType,LinkLabel>();
+    let mut db = new_datastructure::<K,DataType,LinkLabel>(None);
 
 
     loop{
@@ -517,10 +527,13 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
     }
 
 }
-pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,DataType:std::clone::Clone,LinkLabel:std::clone::Clone+Serialize>()->DataStructure<K,DataType,LinkLabel>
+pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,
+    DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing: Option<String>)->
+        DataStructure<K,DataType,LinkLabel>
     {
     return DataStructure{
         tree:BTreeMap::new(),
+        file_backing:backing.clone()
     }
 }
 
@@ -541,7 +554,7 @@ mod tests{
             arr.push(prelude::random());
         }
 
-        let mut ds = new_datastructure::<u32,u32,Label>();
+        let mut ds = new_datastructure::<u32,u32,Label>(None);
         for i in &arr{
             ds.insert(i,*i);
         }
@@ -559,11 +572,11 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_right_join(){
-        let mut dsr=new_datastructure::<u32,u32,Label>();
+        let mut dsr=new_datastructure::<u32,u32,Label>(None);
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let mut dsl=new_datastructure::<u32,u32,Label>();
+        let mut dsl=new_datastructure::<u32,u32,Label>(None);
         dsl.insert(&0,0);
         dsl.insert(&1,1);
         dsl.insert(&2,2);
@@ -608,11 +621,11 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_eq(){
-        let mut dsr=new_datastructure::<u32,u32,Label>();
+        let mut dsr=new_datastructure::<u32,u32,Label>(None);
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let mut dsl=new_datastructure::<u32,u32,Label>();
+        let mut dsl=new_datastructure::<u32,u32,Label>(None);
         dsl.insert(&0,0);
         dsl.insert(&1,1);
         dsl.insert(&2,2);
@@ -626,7 +639,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_serialize(){
-        let mut dsr=new_datastructure::<u32,u32,Label>();
+        let mut dsr=new_datastructure::<u32,u32,Label>(None);
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
@@ -639,7 +652,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_links(){
-        let mut dsr=new_datastructure::<u32,u32,Label>();
+        let mut dsr=new_datastructure::<u32,u32,Label>(None);
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
@@ -651,7 +664,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_iter_link(){
-        let mut ds = new_datastructure::<u32,u32,Label>();
+        let mut ds = new_datastructure::<u32,u32,Label>(None);
         ds.insert(&10,5);
         ds.insert_link(&9,&vec![10],0);
         let iter = ds.iter_links(&9).ok().unwrap();
@@ -662,7 +675,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_iter_data(){
-        let mut ds = new_datastructure::<u32,u32,Label>();
+        let mut ds = new_datastructure::<u32,u32,Label>(None);
         ds.insert(&10,5);
         for (_key,data) in ds.iter_data(){
             assert!(*data==5);
@@ -673,7 +686,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_set_data(){
-        let mut ds = new_datastructure::<u32,u32,Label>();
+        let mut ds = new_datastructure::<u32,u32,Label>(None);
         ds.insert(&10,5);
         ds.set_data(&10,&10);
         for (_key,data) in ds.iter_data(){
