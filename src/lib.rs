@@ -391,6 +391,18 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     pub fn contains(&self,key:&KeyType)->bool{
         return self.tree.get(key).is_some();
     }
+    /// Appends to link in database
+    ///```
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
+    /// ds.insert(&10,5);
+    /// ds.insert_link(&9,&vec![],0);
+    /// ds.append_links(&9,&10);
+    /// let iter = ds.iter_links(&9).ok().unwrap();
+    /// 
+    /// for (i,j) in iter{
+    ///     assert!(*j==5);
+    /// }
+    /// ```
     pub fn append_links(&mut self,key:&KeyType,
         key_append:&KeyType)->Result<(),DBOperationError>{
         let data = self.get_node(key)?.clone();
