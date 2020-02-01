@@ -1,6 +1,6 @@
 [package]
 name = "gulkana"
-version = "1.1.0"
+version = "1.1.1"
 authors = ["nick <scifi6546@protonmail.com>"]
 edition = "2018"
 description="A simple database"
