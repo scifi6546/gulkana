@@ -41,6 +41,14 @@ impl <KeyType:std::cmp::PartialEq+std::clone::Clone,DataType:std::clone::Clone,L
             return Err(DBOperationError::NodeNotData);
         }
     }
+    pub fn get_link(&self)->Result<&Link<KeyType,LinkLabel>,DBOperationError>{
+        let data = self.item.a();
+        if data.is_some(){
+            return Ok(data.unwrap());
+        }else{
+            return Err(DBOperationError::NodeNotLink);
+        }
+    }
 }
 fn new_node<K:std::cmp::PartialEq+std::clone::Clone,
    I:std::clone::Clone,LinkLabel:std::clone::Clone>(input:I)->Node<K,I,LinkLabel>
@@ -202,6 +210,34 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,
         }
     }
 }
+pub struct DataLinkIterNoRef<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>{
+        db:&'a DataStructure<KeyType,DataType,LinkLabel>,
+        linked_keys: std::vec::Vec<KeyType>,
+        current_index: usize,
+}
+impl<'a,KeyType:std::cmp::Ord+std::clone::Clone+Serialize,
+        DataType:std::clone::Clone+Serialize,
+        LinkLabel:std::clone::Clone+Serialize
+    > Iterator for DataLinkIterNoRef<'a,KeyType,DataType,LinkLabel>{
+
+    type Item=(KeyType,&'a std::vec::Vec<KeyType>);
+    fn next(&mut self)->Option<Self::Item>{
+        let opt = self.linked_keys.get(self.current_index);
+        if opt.is_some(){
+            let res = self.db.get_links(&opt.unwrap().clone()); 
+            if res.is_ok(){
+
+                let data= res.ok().unwrap();
+                self.current_index+=1;
+                return Some((opt.unwrap().clone(),data));
+            }else{
+                return None;
+            }
+        }else{
+            return None;
+        }
+    }
+}
 /*
 pub struct DataLinkIterMut<'a,KeyType:std::cmp::Ord+std::clone::Clone,
     DataType:std::clone::Clone>{
@@ -349,6 +385,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     /// let v = ds.get_links(&9).ok().unwrap();
     /// assert!(v[0]==10);
     /// ````
+
     pub fn get_links(&self,key:&KeyType)->Result<&Vec<KeyType>,DBOperationError>{
         let data = self.get_node(key)?;
         let vec_temp = data.item.a();
@@ -383,13 +420,33 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
     /// ds.insert(&10,5);
     /// ds.insert_link(&9,&vec![10],0);
-    /// for link in ds.iter_link_type(0){
-    ///     for (key,link) in ds.iter_links(link){
-    ///         assert!(key==&10);
-    ///     }
+    /// for (link,linked_keys) in ds.iter_link_type(&0){
+    ///         assert!(link==9);
     /// }
-    ///
     /// ```
+    pub fn iter_link_type(&self,link_type:&LinkLabel)->DataLinkIterNoRef<KeyType,DataType,LinkLabel>
+   where
+    LinkLabel:std::cmp::PartialEq
+        {
+        let mut keys = vec![];
+
+        for (key,node) in self.iter(){
+            let res = node.get_link();
+            if res.is_ok(){
+
+                if &res.ok().unwrap().type_label==link_type{
+                    keys.push(key.clone());
+                }
+
+            }
+        }
+        return DataLinkIterNoRef{
+
+            db:self,
+            linked_keys:keys,
+            current_index:0,
+        };
+    }
     pub fn append_links(&mut self,key:&KeyType,
         key_append:&KeyType)->Result<(),DBOperationError>{
         let data = self.get_node(key)?.clone();
@@ -706,6 +763,17 @@ mod tests{
         }
         return ();
             
+    }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_link_type_iter(){
+        let mut ds = new_datastructure::<u32,u32,u32>(None);
+        ds.insert(&10,5);
+        ds.insert_link(&9,&vec![10],0);
+        for (key,linked_keys) in ds.iter_link_type(&0){
+                assert!(key==9);
+                assert!(linked_keys[0]==10);
+        }
     }
 
 
