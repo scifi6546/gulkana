@@ -351,6 +351,17 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
             iter:self.iter()
         };
     }
+    /// Gets All keys in database
+    ///
+    /// ```
+    ///
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// ds.insert(&10,5);
+    /// let out = ds.get_keys();
+    /// assert!(out[0]==10);
+    pub fn get_keys(&self)->std::vec::Vec<KeyType>{
+        return self.tree.keys().cloned().collect()
+    }
     /// gets key from database
     /// ```
     ///
