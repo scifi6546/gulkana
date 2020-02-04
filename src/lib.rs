@@ -596,14 +596,31 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
     }
 
 }
-pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,
-    DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing: Option<String>)->
-        DataStructure<K,DataType,LinkLabel>
-    {
+pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing:Option<String>)->DataStructure<K,DataType,LinkLabel>{
     return DataStructure{
         tree:BTreeMap::new(),
-        file_backing:backing.clone()
+        file_backing:backing,
     }
+
+}
+pub fn backed_datastructure<'a,K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,
+    DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing: &'a String)->
+        DataStructure<K,DataType,LinkLabel>
+where
+    K:Deserialize<'a>,
+    DataType:Deserialize<'a>,
+    LinkLabel:Deserialize<'a>,
+    {
+            let res = from_string(&backing);
+            if res.is_ok(){
+                return res.ok().unwrap();
+            }else{
+            return DataStructure{
+                tree:BTreeMap::new(),
+                file_backing:Some(backing.clone()),
+            }
+
+        }
 }
 
 
