@@ -577,12 +577,12 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
     loop{
         let left_opt = left_iter.peek();
         let right_opt = right_iter.peek();
-        if left_opt.is_none(){
+        if right_opt.is_none(){
             return Ok(db);            
         }else{
-            if right_opt.is_none(){
-                db.insert_node(left_opt.unwrap().0,left_opt.unwrap().1.clone())?;
-                left_iter.next();
+            if left_opt.is_none(){
+                db.insert_node(right_opt.unwrap().0,right_opt.unwrap().1.clone())?;
+                right_iter.next();
             }else{
                 let left_data = left_opt.unwrap();
                 let right_data = right_opt.unwrap();
@@ -593,14 +593,11 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
                     db.insert_node(left_key,left_data.1.clone())?;
                     left_iter.next();
                     right_iter.next();
-                }else{
-                    if left_key>right_key{
-                        right_iter.next();
-                    }else{
-                        db.insert_node(left_key,left_data.1.clone())?;
-                        left_iter.next();
-                    }
-
+                }else if left_key<right_key{
+                    left_iter.next();
+                }else if right_key>left_key{
+                    db.insert_node(right_key,right_data.1.clone())?;
+                    right_iter.next();
                 }
             }
         }
@@ -680,40 +677,22 @@ mod tests{
         println!("inserted");
         println!("right ds: {}",dsr);
         println!("left ds: {}",dsl);
-        let mut join = right_join(&dsr,&dsl).ok().unwrap();
-        println!("did first join");
-        let mut vec_out:Vec<u32>=Vec::new();
-        for i in join.iter(){
-            vec_out.push(*i.1.item.b().unwrap());
-        }
-        vec_out.sort();
-        for i in 0..vec_out.len(){
-            assert!(vec_out[i]==i as u32);
-        }
-        //Testing with extra item in left
-        dsl.insert(&7,7);
-        join = right_join(&dsr,&dsl).ok().unwrap();
-        vec_out.clear();
-        for i in join.iter(){
-            vec_out.push(*i.1.item.b().unwrap());
-        }
-        vec_out.sort();
-        for i in 0..vec_out.len(){
-            assert!(vec_out[i]==i as u32);
-        }
+        let join = right_join(&dsr,&dsl).ok().unwrap();
+        println!("join ds: {}",join);
+        assert!(join==dsl);
+        
+        
+        dsr.insert(&4,3);
+        let join2 = right_join(&dsl,&dsr).ok().unwrap();
+        println!("right ds: {}",dsr);
+        println!("left ds: {}",dsl);
 
-        //testing with extra item in right
-        dsr.insert(&3,3);
-        dsr.insert(&4,4);
-        join = right_join(&dsr,&dsl).ok().unwrap();
-        vec_out.clear();
-        for i in join.iter(){
-            vec_out.push(*i.1.item.b().unwrap());
-        }
-        vec_out.sort();
-        for i in 0..vec_out.len(){
-            assert!(vec_out[i]==i as u32);
-        }
+        println!("join2 ds: {}",join);
+        assert!(join2 !=dsl);
+        dsl.insert(&4,3);
+        assert!(join2==dsl);
+
+        
     }
     #[test]
     #[allow(unused_must_use)]
