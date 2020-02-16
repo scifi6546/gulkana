@@ -649,10 +649,12 @@ where
                 return Err(DBOperationError::ParseError);
             }
         }else{
-            return Ok(DataStructure{
+            let ds = DataStructure{
                 tree:BTreeMap::new(),
                 file_backing:Some(backing.clone()),
-            });
+            };
+            ds.write_back()?;
+            return Ok(ds);
 
         }
 
@@ -722,6 +724,13 @@ mod tests{
             assert!(data==&0);
         }
         assert!(std::path::Path::new("testing_db.json").exists());
+        {
+            std::fs::remove_file("testing_db.json");
+            let mut ds = backed_datastructure::<u32,u32,Label>
+                (&"testing_db.json".to_string()).ok().unwrap();
+            assert!(std::path::Path::new("testing_db.json").exists());
+
+        }
 
 
     }
