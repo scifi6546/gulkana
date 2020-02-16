@@ -641,10 +641,7 @@ where
                 println!("read successfully from file");
                 return Ok(res.ok().unwrap());
             }else{
-                return Ok(DataStructure{
-                    tree:BTreeMap::new(),
-                    file_backing:Some(backing.clone()),
-                });
+                return Err(DBOperationError::ParseError);
             }
         }else{
             return Ok(DataStructure{
