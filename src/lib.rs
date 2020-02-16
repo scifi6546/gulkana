@@ -310,10 +310,16 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     /// ds.insert(&11,6);
     /// ds.insert_link(&9,&vec![10],0);
     /// ds.overwrite_link(&9,&vec![11],0);
+    /// ds.overwrite_link(&8,&vec![10],0);
     /// let iter = ds.iter_links(&9).ok().unwrap();
     /// 
     /// for (_key,data) in iter{
     ///     assert!(*data==6);
+    /// }
+    /// let iter2 = ds.iter_links(&8).ok().unwrap();
+    /// 
+    /// for (_key,data) in iter2{
+    ///     assert!(*data==5);
     /// }
     /// ````
     pub fn overwrite_link(&mut self,key:&KeyType,children:&std::vec::Vec<KeyType>,link_type:LinkLabel)->
@@ -601,7 +607,6 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
             }
         }
     }
-
 }
 pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>()->DataStructure<K,DataType,LinkLabel>{
     return DataStructure{
@@ -709,12 +714,14 @@ mod tests{
             ds.insert(&0,0);
             ds.make_backed(&"testing_db.json".to_string());
         }
+        assert!(std::path::Path::new("testing_db.json").exists());
         {
             let mut ds = backed_datastructure::<u32,u32,Label>
                 (&"testing_db.json".to_string()).ok().unwrap();
             let data = ds.get(&0).ok().unwrap();
             assert!(data==&0);
         }
+        assert!(std::path::Path::new("testing_db.json").exists());
 
 
     }
