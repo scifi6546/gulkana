@@ -6,7 +6,8 @@ use std::fmt;
 //rust lint does not see that rand is used so to kill error
 #[allow(unused_imports)]
 use rand::prelude;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize,Deserialize};
+use serde::de::DeserializeOwned;
 mod opt_pair;
 use opt_pair::{OptStruct,new_optstruct_a,new_optstruct_b};
 /// # Gulkana
@@ -87,6 +88,7 @@ pub enum DBOperationError{
     NodeNotData,
     SerializeError,
     FSError,
+    ParseError,
     
 }
 impl Into<String> for DBOperationError{
@@ -98,6 +100,7 @@ impl Into<String> for DBOperationError{
             Self::KeyNotFound => "Key Not found".to_string(),
             Self::NodeNotLink => "Node Not Link".to_string(),
             Self::NodeNotData => "Node Not Data".to_string(),
+            Self::ParseError => "Parse Error".to_string(),
         }
     }
 }
@@ -105,6 +108,14 @@ impl From<SerializeError> for DBOperationError{
     fn from(error:SerializeError)->Self{
         match error{
             _ => Self::SerializeError,
+        }
+    }
+
+}
+impl From<serde_json::error::Error> for DBOperationError{
+    fn from(error:serde_json::error::Error)->Self{
+        match error{
+            _ => Self::ParseError,
         }
     }
 
@@ -268,7 +279,7 @@ impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iter
 impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize+Serialize> DataStructure<KeyType,DataType,LinkLabel>{
     /// Inserts data into datastructure
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// assert!(ds.insert(&10,20).is_err());
     /// ```
@@ -278,7 +289,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     ///Used to insert a link into a datastructure
     ///```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// ds.insert_link(&9,&vec![10],0);
     /// let iter = ds.iter_links(&9).ok().unwrap();
@@ -294,7 +305,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     ///Overwrites Links with vec shown
     ///```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// ds.insert(&11,6);
     /// ds.insert_link(&9,&vec![10],0);
@@ -331,7 +342,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// sets data in database
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,3);
     /// ds.set_data(&10,&5);
     /// assert!(ds.get(&10).ok().unwrap()==&5);
@@ -355,7 +366,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     ///
     /// ```
     ///
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// let out = ds.get_keys();
     /// assert!(out[0]==10);
@@ -365,7 +376,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     /// gets key from database
     /// ```
     ///
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// let data = ds.get(&10);
     /// assert!(*data.ok().unwrap()==5); 
@@ -389,7 +400,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Gets linked nodes
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// ds.insert(&11,6);
     /// ds.insert_link(&9,&vec![10],0);
@@ -418,7 +429,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Checks if database contains a given key
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// assert!(ds.contains(&10));
     /// assert!(!ds.contains(&20));
@@ -428,7 +439,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Gets iterator of links with labels
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// ds.insert(&10,5);
     /// ds.insert_link(&9,&vec![10],0);
     /// for (link,linked_keys) in ds.iter_link_type(&0){
@@ -496,6 +507,14 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
             }
         }
     }
+    /// Makes the database backed
+    ///
+    pub fn make_backed(&mut self,file_backing:&String)->Result<(),DBOperationError>{
+        self.file_backing=Some(file_backing.clone());
+        self.write_back()?;
+        Ok(())
+
+    }
     ///writes back to a file
     fn write_back(&self)->Result<(),DBOperationError>
         where
@@ -521,7 +540,7 @@ impl<KeyType:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clon
     }
     /// Gets number of elements in db
     /// ```
-    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>(None);
+    /// let mut ds = gulkana::new_datastructure::<u32,u32,u32>();
     /// assert!(ds.len()==0);
     /// ds.insert(&20,20);
     /// assert!(ds.len()==1);
@@ -545,33 +564,13 @@ impl<K: std::cmp::Ord+std::fmt::Display+std::clone::Clone+Serialize,DataType:std
 pub enum ReadError{
     ParseError
 }
-/// Reads Database from a string. Can be used to write to a file
-pub fn from_string<'a,K:std::cmp::PartialEq+std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(data_in:&'a std::string::String)->Result<DataStructure<K,DataType,LinkLabel>,ReadError>
-where
-    K:Deserialize<'a>,
-    DataType:Deserialize<'a>,
-    LinkLabel:Deserialize<'a>,
-
-{
-
-        let res = serde_json::from_str(data_in);
-        if res.is_ok(){
-            return Ok(res.ok().unwrap());
-        }else{
-            return match res.err().unwrap(){
-                _ => Err(ReadError::ParseError),
-            }
-        }
-        
-        
-    }
 pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(left:&DataStructure<K,DataType,LinkLabel>,
         right:&DataStructure<K,DataType,LinkLabel>)->Result<DataStructure<K,DataType,LinkLabel>,DBOperationError>
     {
 
     let mut left_iter = left.iter().peekable();
     let mut right_iter = right.iter().peekable();
-    let mut db = new_datastructure::<K,DataType,LinkLabel>(None);
+    let mut db = new_datastructure::<K,DataType,LinkLabel>();
 
 
     loop{
@@ -604,31 +603,57 @@ pub fn right_join<K:std::cmp::Ord+std::clone::Clone+Serialize,DataType:std::clon
     }
 
 }
-pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing:Option<String>)->DataStructure<K,DataType,LinkLabel>{
+pub fn new_datastructure<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>()->DataStructure<K,DataType,LinkLabel>{
     return DataStructure{
         tree:BTreeMap::new(),
-        file_backing:backing,
+        file_backing:None,
     }
+
+}
+pub fn from_string<K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,
+    DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>
+    (input_string:String)->
+        Result<DataStructure<K,DataType,LinkLabel>,DBOperationError>
+where
+    K:DeserializeOwned,
+
+    DataType:DeserializeOwned,
+    LinkLabel:DeserializeOwned,
+{
+    let ds = serde_json::from_str(input_string.as_str())?;
+    return Ok(ds);
 
 }
 pub fn backed_datastructure<'a,K:std::cmp::PartialEq+std::clone::Clone+std::cmp::Ord+Serialize,
     DataType:std::clone::Clone+Serialize,LinkLabel:std::clone::Clone+Serialize>(backing: &'a String)->
-        DataStructure<K,DataType,LinkLabel>
+        Result<DataStructure<K,DataType,LinkLabel>,DBOperationError>
 where
-    K:Deserialize<'a>,
-    DataType:Deserialize<'a>,
-    LinkLabel:Deserialize<'a>,
+    K:DeserializeOwned,
+
+    DataType:DeserializeOwned,
+    LinkLabel:DeserializeOwned,
     {
-            let res = from_string(&backing);
+        let file_res = File::open(backing);
+        if file_res.is_ok(){
+            let file=file_res.ok().unwrap();
+            let res = serde_json::from_reader(file);
             if res.is_ok(){
-                return res.ok().unwrap();
+                println!("read successfully from file");
+                return Ok(res.ok().unwrap());
             }else{
-            return DataStructure{
+                return Ok(DataStructure{
+                    tree:BTreeMap::new(),
+                    file_backing:Some(backing.clone()),
+                });
+            }
+        }else{
+            return Ok(DataStructure{
                 tree:BTreeMap::new(),
                 file_backing:Some(backing.clone()),
-            }
+            });
 
         }
+
 }
 
 
@@ -648,7 +673,7 @@ mod tests{
             arr.push(prelude::random());
         }
 
-        let mut ds = new_datastructure::<u32,u32,Label>(None);
+        let mut ds = new_datastructure::<u32,u32,Label>();
         for i in &arr{
             ds.insert(i,*i);
         }
@@ -665,12 +690,45 @@ mod tests{
     }
     #[test]
     #[allow(unused_must_use)]
+    fn test_backed(){
+        {
+            std::fs::remove_file("testing_db.json");
+        let mut ds = backed_datastructure::<u32,u32,Label>(&"testing_db.json".to_string()).ok().unwrap();
+        ds.insert(&0,0);
+        }
+        {
+            let mut ds = backed_datastructure::<u32,u32,Label>
+                (&"testing_db.json".to_string()).ok().unwrap();
+            let data = ds.get(&0).ok().unwrap();
+            assert!(data==&0);
+        }
+    }
+    #[test]
+    #[allow(unused_must_use)]
+    fn test_make_backed(){
+        {
+            std::fs::remove_file("testing_db.json");
+            let mut ds = new_datastructure::<u32,u32,Label>();
+            ds.insert(&0,0);
+            ds.make_backed(&"testing_db.json".to_string());
+        }
+        {
+            let mut ds = backed_datastructure::<u32,u32,Label>
+                (&"testing_db.json".to_string()).ok().unwrap();
+            let data = ds.get(&0).ok().unwrap();
+            assert!(data==&0);
+        }
+
+
+    }
+    #[test]
+    #[allow(unused_must_use)]
     fn test_right_join(){
-        let mut dsr=new_datastructure::<u32,u32,Label>(None);
+        let mut dsr=new_datastructure::<u32,u32,Label>();
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let mut dsl=new_datastructure::<u32,u32,Label>(None);
+        let mut dsl=new_datastructure::<u32,u32,Label>();
         dsl.insert(&0,0);
         dsl.insert(&1,1);
         dsl.insert(&2,2);
@@ -697,11 +755,11 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_eq(){
-        let mut dsr=new_datastructure::<u32,u32,Label>(None);
+        let mut dsr=new_datastructure::<u32,u32,Label>();
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
-        let mut dsl=new_datastructure::<u32,u32,Label>(None);
+        let mut dsl=new_datastructure::<u32,u32,Label>();
         dsl.insert(&0,0);
         dsl.insert(&1,1);
         dsl.insert(&2,2);
@@ -715,12 +773,12 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_serialize(){
-        let mut dsr=new_datastructure::<u32,u32,Label>(None);
+        let mut dsr=new_datastructure::<u32,u32,Label>();
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
         let str_ds = dsr.to_string();
-        let dsl:DataStructure<u32,u32,Label> = from_string(&str_ds.ok().unwrap()).ok().unwrap();
+        let dsl:DataStructure<u32,u32,Label> = from_string(str_ds.ok().unwrap()).ok().unwrap();
         assert!(dsr==dsl);
 
 
@@ -728,7 +786,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_links(){
-        let mut dsr=new_datastructure::<u32,u32,Label>(None);
+        let mut dsr=new_datastructure::<u32,u32,Label>();
         dsr.insert(&0,0);
         dsr.insert(&1,1);
         dsr.insert(&2,2);
@@ -740,7 +798,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_iter_link(){
-        let mut ds = new_datastructure::<u32,u32,Label>(None);
+        let mut ds = new_datastructure::<u32,u32,Label>();
         ds.insert(&10,5);
         ds.insert_link(&9,&vec![10],0);
         let iter = ds.iter_links(&9).ok().unwrap();
@@ -751,7 +809,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_iter_data(){
-        let mut ds = new_datastructure::<u32,u32,Label>(None);
+        let mut ds = new_datastructure::<u32,u32,Label>();
         ds.insert(&10,5);
         for (_key,data) in ds.iter_data(){
             assert!(*data==5);
@@ -762,7 +820,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_set_data(){
-        let mut ds = new_datastructure::<u32,u32,Label>(None);
+        let mut ds = new_datastructure::<u32,u32,Label>();
         ds.insert(&10,5);
         ds.set_data(&10,&10);
         for (_key,data) in ds.iter_data(){
@@ -774,7 +832,7 @@ mod tests{
     #[test]
     #[allow(unused_must_use)]
     fn test_link_type_iter(){
-        let mut ds = new_datastructure::<u32,u32,u32>(None);
+        let mut ds = new_datastructure::<u32,u32,u32>();
         ds.insert(&10,5);
         ds.insert_link(&9,&vec![10],0);
         for (key,linked_keys) in ds.iter_link_type(&0){
