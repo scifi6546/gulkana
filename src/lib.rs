@@ -711,12 +711,18 @@ where
     LinkLabel: DeserializeOwned,
 {
     let file_res = File::open(backing);
+    
     if file_res.is_ok() {
         let file = file_res.ok().unwrap();
+        let len = file.metadata().unwrap().len();
         let res = serde_json::from_reader(file);
         if res.is_ok() {
             return Ok(res.ok().unwrap());
         } else {
+            if len==0{
+                std::fs::remove_file(backing)?;
+                return backed_datastructure(backing);
+            }
             return Err(DBOperationError::ParseError);
         }
     } else {
@@ -877,14 +883,14 @@ mod tests {
     }
     #[test]
     #[allow(unused_must_use)]
-    fn make_backed(){
+    fn make_backed_with_file(){
         std::fs::remove_file("testing_db.json");
         {
-            let mut file = File::create("db.json").ok().unwrap();
+            let mut file = File::create("testing_db.json").ok().unwrap();
             file.write_all(b"");
         }
         let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string());
-        assert!(ds.is_ok());
+        assert!(ds.is_ok()==true);
             
 
     }
