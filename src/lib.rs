@@ -2,6 +2,7 @@
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::ErrorKind;
 
 use std::fmt;
 //rust lint does not see that rand is used so to kill error
@@ -106,6 +107,22 @@ pub enum DBOperationError {
     SerializeError,
     FSError,
     ParseError,
+    FileNotFound,
+    FilePermissionDenied,
+    NetworkConnectionRefused,
+    NetworkConnectionReset,
+    NetworkNotConnected,
+    NetworkAddressInUse,
+    NetworkAddrNotAvailable,
+    BrokenPipe,
+    FileAlreadyExists,
+    WouldBlock,
+    InvalidInput,
+    InvalidData,
+    TimedOut,
+    Interrupted,
+    Other,
+    UnexpectedEof,
 }
 impl Into<String> for DBOperationError {
     fn into(self) -> String {
@@ -117,6 +134,26 @@ impl Into<String> for DBOperationError {
             Self::NodeNotLink => "Node Not Link".to_string(),
             Self::NodeNotData => "Node Not Data".to_string(),
             Self::ParseError => "Parse Error".to_string(),
+            Self::FileNotFound=>"File Not Found".to_string(),
+            Self::FilePermissionDenied=>"File Permission Denied".to_string(),
+            Self::NetworkConnectionRefused=>"Network COnnection Refused".to_string(),
+            Self::NetworkConnectionReset=>"Network Connection Reset".to_string(),
+            Self::NetworkNotConnected=>"Network Not Connected".to_string(),
+            Self::NetworkAddressInUse=>"Network Address In Use".to_string(),
+            Self::NetworkAddrNotAvailable=>"Network Address Not Availible".to_string(),
+            Self::BrokenPipe=>"Broken Pipe".to_string(),
+            Self::FileAlreadyExists=>"File ALready Exists".to_string(),
+            Self::WouldBlock=>"Would Block".to_string(),
+            Self::InvalidInput=>"Invalid Input".to_string(),
+            Self::InvalidData=>"Invalid Data".to_string(),
+            Self::TimedOut=>"Timed Out".to_string(),
+            Self::Interrupted=>"Interrupted".to_string(),
+            Self::Other=>"Other".to_string(),
+            Self::UnexpectedEof=>"Unexpected End of File".to_string(),
+
+
+
+
         }
     }
 }
@@ -136,8 +173,27 @@ impl From<serde_json::error::Error> for DBOperationError {
 }
 impl From<std::io::Error> for DBOperationError {
     fn from(error: std::io::Error) -> Self {
-        match error {
-            _ => Self::FSError,
+        match error.kind() {
+            ErrorKind::NotFound=>Self::FileNotFound,
+            ErrorKind::PermissionDenied=>Self::FilePermissionDenied,
+            ErrorKind::ConnectionRefused=>Self::NetworkConnectionRefused,
+            ErrorKind::ConnectionReset=>Self::NetworkConnectionReset,
+            ErrorKind::NotConnected=>Self::NetworkNotConnected,
+            ErrorKind::AddrInUse=>Self::NetworkAddressInUse,
+            ErrorKind::AddrNotAvailable=>Self::NetworkAddrNotAvailable,
+            ErrorKind::BrokenPipe=>Self::BrokenPipe,
+            ErrorKind::AlreadyExists=>Self::FileAlreadyExists,
+            ErrorKind::WouldBlock=>Self::WouldBlock,
+            ErrorKind::InvalidInput=>Self::InvalidInput,
+            ErrorKind::InvalidData=>Self::InvalidData,
+            ErrorKind::TimedOut=>Self::TimedOut,
+            ErrorKind::Interrupted=>Self::Interrupted,
+            ErrorKind::Other=>Self::Other,
+            ErrorKind::UnexpectedEof=>Self::UnexpectedEof,
+            _=>Self::Other,
+
+
+
         }
     }
 }
