@@ -876,6 +876,19 @@ mod tests {
         assert!(dsr != dsl);
     }
     #[test]
+    #[allow(unused_must_use)]
+    fn make_backed(){
+        std::fs::remove_file("testing_db.json");
+        {
+            let mut file = File::create("db.json").ok().unwrap();
+            file.write_all(b"");
+        }
+        let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string());
+        assert!(ds.is_ok());
+            
+
+    }
+    #[test]
     #[allow(unused_must_use,unused_variables)]
     fn test_backed_join(){
         let mut dsr = new_datastructure::<u32, u32, Label>();
