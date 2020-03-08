@@ -150,11 +150,12 @@ impl Into<String> for DBOperationError {
             Self::Interrupted=>"Interrupted".to_string(),
             Self::Other=>"Other".to_string(),
             Self::UnexpectedEof=>"Unexpected End of File".to_string(),
-
-
-
-
         }
+    }
+}
+impl fmt::Display for DBOperationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}",self.to_string())
     }
 }
 impl From<SerializeError> for DBOperationError {
@@ -853,45 +854,48 @@ mod tests {
     #[test]
     #[allow(unused_must_use)]
     fn test_backed() {
+        let db_path = "test_backed.json";
         {
-            std::fs::remove_file("testing_db.json");
-            let mut ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string())
+            std::fs::remove_file(db_path);
+            let mut ds = backed_datastructure::<u32, u32, Label>(&db_path.to_string())
                 .ok()
                 .unwrap();
             ds.insert(&0, 0);
         }
         {
-            let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string())
+            let ds = backed_datastructure::<u32, u32, Label>(&db_path.to_string())
                 .ok()
                 .unwrap();
             let data = ds.get(&0).ok().unwrap();
             assert!(data == &0);
+            std::fs::remove_file(db_path);
         }
     }
     #[test]
     #[allow(unused_must_use, unused_variables)]
     fn test_make_backed() {
+        let db_path = "test_make_backed.json";
         {
-            std::fs::remove_file("testing_db.json");
+            std::fs::remove_file(db_path);
             let mut ds = new_datastructure::<u32, u32, Label>();
             ds.insert(&0, 0);
-            ds.make_backed(&"testing_db.json".to_string());
+            ds.make_backed(&db_path.to_string());
         }
-        assert!(std::path::Path::new("testing_db.json").exists());
+        assert!(std::path::Path::new(db_path).exists());
         {
-            let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string())
+            let ds = backed_datastructure::<u32, u32, Label>(&db_path.to_string())
                 .ok()
                 .unwrap();
             let data = ds.get(&0).ok().unwrap();
             assert!(data == &0);
         }
-        assert!(std::path::Path::new("testing_db.json").exists());
+        assert!(std::path::Path::new(db_path).exists());
         {
-            std::fs::remove_file("testing_db.json");
-            let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string())
+            std::fs::remove_file(db_path);
+            let ds = backed_datastructure::<u32, u32, Label>(&db_path.to_string())
                 .ok()
                 .unwrap();
-            assert!(std::path::Path::new("testing_db.json").exists());
+            assert!(std::path::Path::new(db_path).exists());
         }
     }
     #[test]
