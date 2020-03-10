@@ -99,6 +99,7 @@ where
 pub enum SerializeError {
     Unknown,
 }
+#[derive(Clone)]
 pub enum DBOperationError {
     KeyAllreadyPresent,
     KeyNotFound,
@@ -124,37 +125,47 @@ pub enum DBOperationError {
     Other,
     UnexpectedEof,
 }
+impl DBOperationError{
+    fn make_to_string(self)->String{
+        match self {
+            Self::SerializeError => "failed seriailzing database".into(),
+            Self::FSError => "Failed to write".into(),
+            Self::KeyAllreadyPresent => "Key Allready Present".into(),
+            Self::KeyNotFound => "Key Not found".into(),
+            Self::NodeNotLink => "Node Not Link".into(),
+            Self::NodeNotData => "Node Not Data".into(),
+            Self::ParseError => "Parse Error".into(),
+            Self::FileNotFound=>"File Not Found".into(),
+            Self::FilePermissionDenied=>"File Permission Denied".into(),
+            Self::NetworkConnectionRefused=>"Network COnnection Refused".into(),
+            Self::NetworkConnectionReset=>"Network Connection Reset".into(),
+            Self::NetworkNotConnected=>"Network Not Connected".into(),
+            Self::NetworkAddressInUse=>"Network Address In Use".into(),
+            Self::NetworkAddrNotAvailable=>"Network Address Not Availible".into(),
+            Self::BrokenPipe=>"Broken Pipe".into(),
+            Self::FileAlreadyExists=>"File ALready Exists".into(),
+            Self::WouldBlock=>"Would Block".into(),
+            Self::InvalidInput=>"Invalid Input".into(),
+            Self::InvalidData=>"Invalid Data".into(),
+            Self::TimedOut=>"Timed Out".into(),
+            Self::Interrupted=>"Interrupted".into(),
+            Self::Other=>"Other".into(),
+            Self::UnexpectedEof=>"Unexpected End of File".into(),
+        }
+    }
+}
 impl Into<String> for DBOperationError {
     fn into(self) -> String {
-        match self {
-            Self::SerializeError => "failed seriailzing database".to_string(),
-            Self::FSError => "Failed to write".to_string(),
-            Self::KeyAllreadyPresent => "Key Allready Present".to_string(),
-            Self::KeyNotFound => "Key Not found".to_string(),
-            Self::NodeNotLink => "Node Not Link".to_string(),
-            Self::NodeNotData => "Node Not Data".to_string(),
-            Self::ParseError => "Parse Error".to_string(),
-            Self::FileNotFound=>"File Not Found".to_string(),
-            Self::FilePermissionDenied=>"File Permission Denied".to_string(),
-            Self::NetworkConnectionRefused=>"Network COnnection Refused".to_string(),
-            Self::NetworkConnectionReset=>"Network Connection Reset".to_string(),
-            Self::NetworkNotConnected=>"Network Not Connected".to_string(),
-            Self::NetworkAddressInUse=>"Network Address In Use".to_string(),
-            Self::NetworkAddrNotAvailable=>"Network Address Not Availible".to_string(),
-            Self::BrokenPipe=>"Broken Pipe".to_string(),
-            Self::FileAlreadyExists=>"File ALready Exists".to_string(),
-            Self::WouldBlock=>"Would Block".to_string(),
-            Self::InvalidInput=>"Invalid Input".to_string(),
-            Self::InvalidData=>"Invalid Data".to_string(),
-            Self::TimedOut=>"Timed Out".to_string(),
-            Self::Interrupted=>"Interrupted".to_string(),
-            Self::Other=>"Other".to_string(),
-            Self::UnexpectedEof=>"Unexpected End of File".to_string(),
+        self.make_to_string()
+    }
+}
 
-
-
-
-        }
+impl fmt::Display for DBOperationError
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let se = self.clone();
+        let s:String = se.make_to_string();
+        write!(f,"{}",s)
     }
 }
 impl From<SerializeError> for DBOperationError {
@@ -349,33 +360,6 @@ impl<
         }
     }
 }
-/*
-pub struct DataLinkIterMut<'a,KeyType:std::cmp::Ord+std::clone::Clone,
-    DataType:std::clone::Clone>{
-        db:&'a mut DataStructure<KeyType,DataType>,
-        linked_keys: &'a std::vec::Vec<KeyType>,
-        current_index: usize,
-}
-impl<'a,KeyType:std::cmp::Ord+std::clone::Clone,DataType:std::clone::Clone> Iterator
-    for DataLinkIterMut<'a,KeyType,DataType>{
-    type Item=(&'a KeyType,&'a mut DataType);
-    fn next(&mut self)->Option<Self::Item>{
-        let opt = self.linked_keys.get(self.current_index);
-        if opt.is_some(){
-            let res = self.db.get_mut(&opt.unwrap().clone());
-            if res.is_ok(){
-
-                let data= res.ok().unwrap();
-                self.current_index+=1;
-                return Some((&opt.unwrap(),data));
-            }else{
-                return None;
-            }
-        }else{
-            return None;
-        }
-    }
-}*/
 impl<
         KeyType: std::cmp::Ord + std::clone::Clone + Serialize,
         DataType: std::clone::Clone + Serialize,
@@ -1048,5 +1032,53 @@ mod tests {
             assert!(key == 9);
             assert!(linked_keys[0] == 10);
         }
+    }
+    #[test]
+    #[allow(unused_must_use)]
+    fn print_datastructure(){/*
+        let mut arr: Vec<u32> = Vec::new();
+        arr.reserve(100000);
+        for _i in 1..100000 {
+            arr.push(_i);
+
+        }
+
+        let mut ds = new_datastructure::<u32, u32, Label>();
+        for i in &arr {
+            ds.insert(i, *i);
+        }
+        println!("{}",ds);*/
+    }
+    #[test]
+    fn test_to_string_error(){
+        let s:String = DBOperationError::KeyAllreadyPresent.into();
+    }
+    #[test]
+    fn print_errors(){
+        println!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
+        DBOperationError::KeyAllreadyPresent,
+        DBOperationError::KeyNotFound,
+        DBOperationError::NodeNotLink,
+        DBOperationError::NodeNotData,
+        DBOperationError::SerializeError,
+        DBOperationError::FSError,
+        DBOperationError::ParseError,
+        DBOperationError::FileNotFound,
+        DBOperationError::FilePermissionDenied,
+        DBOperationError::NetworkConnectionRefused,
+        DBOperationError::NetworkConnectionReset,
+        DBOperationError::NetworkNotConnected,
+        DBOperationError::NetworkAddressInUse,
+        DBOperationError::NetworkAddrNotAvailable,
+        DBOperationError::BrokenPipe,
+        DBOperationError::FileAlreadyExists,
+        DBOperationError::WouldBlock,
+        DBOperationError::InvalidInput,
+        DBOperationError::InvalidData,
+        DBOperationError::TimedOut,
+        DBOperationError::Interrupted,
+        DBOperationError::Other,
+        DBOperationError::UnexpectedEof,
+    )
     }
 }
