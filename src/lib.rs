@@ -1,4 +1,3 @@
-
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -125,8 +124,8 @@ pub enum DBOperationError {
     Other,
     UnexpectedEof,
 }
-impl DBOperationError{
-    fn make_to_string(self)->String{
+impl DBOperationError {
+    fn to_string(self) -> String {
         match self {
             Self::SerializeError => "failed seriailzing database".into(),
             Self::FSError => "Failed to write".into(),
@@ -135,37 +134,36 @@ impl DBOperationError{
             Self::NodeNotLink => "Node Not Link".into(),
             Self::NodeNotData => "Node Not Data".into(),
             Self::ParseError => "Parse Error".into(),
-            Self::FileNotFound=>"File Not Found".into(),
-            Self::FilePermissionDenied=>"File Permission Denied".into(),
-            Self::NetworkConnectionRefused=>"Network COnnection Refused".into(),
-            Self::NetworkConnectionReset=>"Network Connection Reset".into(),
-            Self::NetworkNotConnected=>"Network Not Connected".into(),
-            Self::NetworkAddressInUse=>"Network Address In Use".into(),
-            Self::NetworkAddrNotAvailable=>"Network Address Not Availible".into(),
-            Self::BrokenPipe=>"Broken Pipe".into(),
-            Self::FileAlreadyExists=>"File ALready Exists".into(),
-            Self::WouldBlock=>"Would Block".into(),
-            Self::InvalidInput=>"Invalid Input".into(),
-            Self::InvalidData=>"Invalid Data".into(),
-            Self::TimedOut=>"Timed Out".into(),
-            Self::Interrupted=>"Interrupted".into(),
-            Self::Other=>"Other".into(),
-            Self::UnexpectedEof=>"Unexpected End of File".into(),
+            Self::FileNotFound => "File Not Found".into(),
+            Self::FilePermissionDenied => "File Permission Denied".into(),
+            Self::NetworkConnectionRefused => "Network COnnection Refused".into(),
+            Self::NetworkConnectionReset => "Network Connection Reset".into(),
+            Self::NetworkNotConnected => "Network Not Connected".into(),
+            Self::NetworkAddressInUse => "Network Address In Use".into(),
+            Self::NetworkAddrNotAvailable => "Network Address Not Availible".into(),
+            Self::BrokenPipe => "Broken Pipe".into(),
+            Self::FileAlreadyExists => "File ALready Exists".into(),
+            Self::WouldBlock => "Would Block".into(),
+            Self::InvalidInput => "Invalid Input".into(),
+            Self::InvalidData => "Invalid Data".into(),
+            Self::TimedOut => "Timed Out".into(),
+            Self::Interrupted => "Interrupted".into(),
+            Self::Other => "Other".into(),
+            Self::UnexpectedEof => "Unexpected End of File".into(),
         }
     }
 }
 impl Into<String> for DBOperationError {
     fn into(self) -> String {
-        self.make_to_string()
+        self.to_string()
     }
 }
 
-impl fmt::Display for DBOperationError
-{
+impl fmt::Display for DBOperationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let se = self.clone();
-        let s:String = se.make_to_string();
-        write!(f,"{}",s)
+        let s: String = se.to_string();
+        write!(f, "{}", s)
     }
 }
 impl From<SerializeError> for DBOperationError {
@@ -185,26 +183,23 @@ impl From<serde_json::error::Error> for DBOperationError {
 impl From<std::io::Error> for DBOperationError {
     fn from(error: std::io::Error) -> Self {
         match error.kind() {
-            ErrorKind::NotFound=>Self::FileNotFound,
-            ErrorKind::PermissionDenied=>Self::FilePermissionDenied,
-            ErrorKind::ConnectionRefused=>Self::NetworkConnectionRefused,
-            ErrorKind::ConnectionReset=>Self::NetworkConnectionReset,
-            ErrorKind::NotConnected=>Self::NetworkNotConnected,
-            ErrorKind::AddrInUse=>Self::NetworkAddressInUse,
-            ErrorKind::AddrNotAvailable=>Self::NetworkAddrNotAvailable,
-            ErrorKind::BrokenPipe=>Self::BrokenPipe,
-            ErrorKind::AlreadyExists=>Self::FileAlreadyExists,
-            ErrorKind::WouldBlock=>Self::WouldBlock,
-            ErrorKind::InvalidInput=>Self::InvalidInput,
-            ErrorKind::InvalidData=>Self::InvalidData,
-            ErrorKind::TimedOut=>Self::TimedOut,
-            ErrorKind::Interrupted=>Self::Interrupted,
-            ErrorKind::Other=>Self::Other,
-            ErrorKind::UnexpectedEof=>Self::UnexpectedEof,
-            _=>Self::Other,
-
-
-
+            ErrorKind::NotFound => Self::FileNotFound,
+            ErrorKind::PermissionDenied => Self::FilePermissionDenied,
+            ErrorKind::ConnectionRefused => Self::NetworkConnectionRefused,
+            ErrorKind::ConnectionReset => Self::NetworkConnectionReset,
+            ErrorKind::NotConnected => Self::NetworkNotConnected,
+            ErrorKind::AddrInUse => Self::NetworkAddressInUse,
+            ErrorKind::AddrNotAvailable => Self::NetworkAddrNotAvailable,
+            ErrorKind::BrokenPipe => Self::BrokenPipe,
+            ErrorKind::AlreadyExists => Self::FileAlreadyExists,
+            ErrorKind::WouldBlock => Self::WouldBlock,
+            ErrorKind::InvalidInput => Self::InvalidInput,
+            ErrorKind::InvalidData => Self::InvalidData,
+            ErrorKind::TimedOut => Self::TimedOut,
+            ErrorKind::Interrupted => Self::Interrupted,
+            ErrorKind::Other => Self::Other,
+            ErrorKind::UnexpectedEof => Self::UnexpectedEof,
+            _ => Self::Other,
         }
     }
 }
@@ -751,7 +746,7 @@ where
     LinkLabel: DeserializeOwned,
 {
     let file_res = File::open(backing);
-    
+
     if file_res.is_ok() {
         let file = file_res.ok().unwrap();
         let len = file.metadata().unwrap().len();
@@ -759,7 +754,7 @@ where
         if res.is_ok() {
             return Ok(res.ok().unwrap());
         } else {
-            if len==0{
+            if len == 0 {
                 std::fs::remove_file(backing)?;
                 return backed_datastructure(backing);
             }
@@ -787,7 +782,6 @@ mod tests {
         arr.reserve(100000);
         for _i in 1..100000 {
             arr.push(_i);
-
         }
 
         let mut ds = new_datastructure::<u32, u32, Label>();
@@ -806,12 +800,11 @@ mod tests {
     }
     #[test]
     #[allow(unused_must_use)]
-    fn test_join_perf(){
+    fn test_join_perf() {
         let mut arr: Vec<u32> = Vec::new();
         arr.reserve(100000);
         for _i in 1..100000 {
             arr.push(_i);
-
         }
 
         let mut ds = new_datastructure::<u32, u32, Label>();
@@ -822,7 +815,7 @@ mod tests {
         for i in &arr {
             dsr.insert(i, *i);
         }
-        let dsj = right_join(&ds,&dsr).ok().unwrap();
+        let dsj = right_join(&ds, &dsr).ok().unwrap();
         arr.sort();
         let mut test_arr: Vec<u32> = Vec::new();
         for (_key, data) in dsj.iter() {
@@ -830,10 +823,7 @@ mod tests {
         }
     }
     #[test]
-    fn write_back_join(){
-
-
-    }
+    fn write_back_join() {}
     #[test]
     #[allow(unused_must_use)]
     fn test_backed() {
@@ -923,34 +913,33 @@ mod tests {
     }
     #[test]
     #[allow(unused_must_use)]
-    fn make_backed_with_file(){
+    fn make_backed_with_file() {
         std::fs::remove_file("testing_db.json");
         {
             let mut file = File::create("testing_db.json").ok().unwrap();
             file.write_all(b"");
         }
         let ds = backed_datastructure::<u32, u32, Label>(&"testing_db.json".to_string());
-        assert!(ds.is_ok()==true);
-            
-
+        assert!(ds.is_ok() == true);
     }
     #[test]
-    #[allow(unused_must_use,unused_variables)]
-    fn test_backed_join(){
+    #[allow(unused_must_use, unused_variables)]
+    fn test_backed_join() {
         let mut dsr = new_datastructure::<u32, u32, Label>();
         dsr.insert(&0, 0);
         dsr.insert(&1, 1);
         dsr.insert(&2, 2);
-        for i in 3..100{
-            dsr.insert(&i,5);
+        for i in 3..100 {
+            dsr.insert(&i, 5);
         }
 
-        
-        let mut dsl = backed_datastructure::<u32, u32, Label>(&"join.json".to_string()).ok().unwrap();
+        let mut dsl = backed_datastructure::<u32, u32, Label>(&"join.json".to_string())
+            .ok()
+            .unwrap();
         dsl.insert(&0, 0);
         dsl.insert(&1, 1);
         dsl.insert(&2, 2);
-        
+
         println!("inserted");
         println!("right ds: {}", dsr);
         println!("left ds: {}", dsl);
@@ -965,7 +954,6 @@ mod tests {
 
         println!("join2 ds: {}", join);
         dsl.insert(&4, 3);
-
     }
     #[test]
     #[allow(unused_must_use)]
@@ -1024,7 +1012,6 @@ mod tests {
     #[test]
     #[allow(unused_must_use)]
     fn test_link_type_iter() {
-
         let mut ds = new_datastructure::<u32, u32, u32>();
         ds.insert(&10, 5);
         ds.insert_link(&9, &vec![10], 0);
@@ -1035,50 +1022,51 @@ mod tests {
     }
     #[test]
     #[allow(unused_must_use)]
-    fn print_datastructure(){/*
-        let mut arr: Vec<u32> = Vec::new();
-        arr.reserve(100000);
-        for _i in 1..100000 {
-            arr.push(_i);
+    fn print_datastructure() { /*
+                               let mut arr: Vec<u32> = Vec::new();
+                               arr.reserve(100000);
+                               for _i in 1..100000 {
+                                   arr.push(_i);
 
-        }
+                               }
 
-        let mut ds = new_datastructure::<u32, u32, Label>();
-        for i in &arr {
-            ds.insert(i, *i);
-        }
-        println!("{}",ds);*/
+                               let mut ds = new_datastructure::<u32, u32, Label>();
+                               for i in &arr {
+                                   ds.insert(i, *i);
+                               }
+                               println!("{}",ds);*/
     }
     #[test]
-    fn test_to_string_error(){
-        let s:String = DBOperationError::KeyAllreadyPresent.into();
+    fn test_to_string_error() {
+        let s: String = DBOperationError::KeyAllreadyPresent.into();
     }
     #[test]
-    fn print_errors(){
-        println!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
-        DBOperationError::KeyAllreadyPresent,
-        DBOperationError::KeyNotFound,
-        DBOperationError::NodeNotLink,
-        DBOperationError::NodeNotData,
-        DBOperationError::SerializeError,
-        DBOperationError::FSError,
-        DBOperationError::ParseError,
-        DBOperationError::FileNotFound,
-        DBOperationError::FilePermissionDenied,
-        DBOperationError::NetworkConnectionRefused,
-        DBOperationError::NetworkConnectionReset,
-        DBOperationError::NetworkNotConnected,
-        DBOperationError::NetworkAddressInUse,
-        DBOperationError::NetworkAddrNotAvailable,
-        DBOperationError::BrokenPipe,
-        DBOperationError::FileAlreadyExists,
-        DBOperationError::WouldBlock,
-        DBOperationError::InvalidInput,
-        DBOperationError::InvalidData,
-        DBOperationError::TimedOut,
-        DBOperationError::Interrupted,
-        DBOperationError::Other,
-        DBOperationError::UnexpectedEof,
-    )
+    fn print_errors() {
+        println!(
+            "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
+            DBOperationError::KeyAllreadyPresent,
+            DBOperationError::KeyNotFound,
+            DBOperationError::NodeNotLink,
+            DBOperationError::NodeNotData,
+            DBOperationError::SerializeError,
+            DBOperationError::FSError,
+            DBOperationError::ParseError,
+            DBOperationError::FileNotFound,
+            DBOperationError::FilePermissionDenied,
+            DBOperationError::NetworkConnectionRefused,
+            DBOperationError::NetworkConnectionReset,
+            DBOperationError::NetworkNotConnected,
+            DBOperationError::NetworkAddressInUse,
+            DBOperationError::NetworkAddrNotAvailable,
+            DBOperationError::BrokenPipe,
+            DBOperationError::FileAlreadyExists,
+            DBOperationError::WouldBlock,
+            DBOperationError::InvalidInput,
+            DBOperationError::InvalidData,
+            DBOperationError::TimedOut,
+            DBOperationError::Interrupted,
+            DBOperationError::Other,
+            DBOperationError::UnexpectedEof,
+        )
     }
 }
