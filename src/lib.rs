@@ -161,7 +161,7 @@ impl Into<String> for DBOperationError {
 
 impl fmt::Display for DBOperationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}",self.clone().to_string())
+        write!(f, "{}", self.clone().to_string())
     }
 }
 impl From<SerializeError> for DBOperationError {
@@ -752,7 +752,7 @@ where
         if res.is_ok() {
             return Ok(res.ok().unwrap());
         } else {
-            if len == 0 {
+            if len < 20 {
                 std::fs::remove_file(backing)?;
                 return backed_datastructure(backing);
             }
@@ -1023,19 +1023,18 @@ mod tests {
     }
     #[test]
     #[allow(unused_must_use)]
-    fn print_datastructure() { /*
-                               let mut arr: Vec<u32> = Vec::new();
-                               arr.reserve(100000);
-                               for _i in 1..100000 {
-                                   arr.push(_i);
+    fn print_datastructure() {
+        let mut arr: Vec<u32> = Vec::new();
+        arr.reserve(100000);
+        for _i in 1..100000 {
+            arr.push(_i);
+        }
 
-                               }
-
-                               let mut ds = new_datastructure::<u32, u32, Label>();
-                               for i in &arr {
-                                   ds.insert(i, *i);
-                               }
-                               println!("{}",ds);*/
+        let mut ds = new_datastructure::<u32, u32, Label>();
+        for i in &arr {
+            ds.insert(i, *i);
+        }
+        println!("{}", ds);
     }
     #[test]
     fn test_to_string_error() {
